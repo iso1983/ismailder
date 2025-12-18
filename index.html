@@ -1,237 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Three.js Cosmic Human Flight</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Cosmic Alien Swarm</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
     </style>
 </head>
 <body>
-
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/examples/jsm/controls/OrbitControls": "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js",
-    "three/examples/jsm/loaders/GLTFLoader": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
-    "three/examples/jsm/utils/SkeletonUtils": "https://unpkg.com/three@0.160.0/examples/jsm/utils/SkeletonUtils.js"
-  }
-}
-</script>
-
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils';
-
-// ----------------------------------
-// Scene / Camera / Renderer
-// ----------------------------------
-const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(
-    75, window.innerWidth / window.innerHeight, 0.1, 30000
-);
-camera.position.set(0, 800, 1500);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-document.body.appendChild(renderer.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-
-// ----------------------------------
-// Lighting
-// ----------------------------------
-scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-
-const sunLight = new THREE.PointLight(0xffffff, 8, 15000);
-sunLight.position.set(1000, 1200, 1000);
-scene.add(sunLight);
-
-// ----------------------------------
-// Starfield
-// ----------------------------------
-const starPositions = [];
-for (let i = 0; i < 16000; i++) {
-    starPositions.push(
-        (Math.random() - 0.5) * 20000,
-        (Math.random() - 0.5) * 20000,
-        (Math.random() - 0.5) * 20000
-    );
-}
-const starGeo = new THREE.BufferGeometry();
-starGeo.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(starPositions, 3)
-);
-scene.add(
-    new THREE.Points(
-        starGeo,
-        new THREE.PointsMaterial({ color: 0xffffff, size: 2 })
-    )
-);
-
-// ----------------------------------
-// Planets
-// ----------------------------------
-const planets = [];
-
-function planetTexture(color) {
-    const c = document.createElement('canvas');
-    c.width = 1024; c.height = 512;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 1024, 512);
-
-    for (let i = 0; i < 2500; i++) {
-        ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.4})`;
-        ctx.beginPath();
-        ctx.arc(Math.random()*1024, Math.random()*512, Math.random()*4, 0, Math.PI*2);
-        ctx.fill();
-    }
-    return new THREE.CanvasTexture(c);
-}
-
-function createPlanet(radius, color, distance, speed) {
-    const group = new THREE.Group();
-    const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(radius, 64, 64),
-        new THREE.MeshStandardMaterial({
-            map: planetTexture(color),
-            roughness: 0.8,
-            metalness: 0.1
-        })
-    );
-    group.add(mesh);
-    group.userData = {
-        radius,
-        distance,
-        speed,
-        angle: Math.random() * Math.PI * 2
-    };
-    scene.add(group);
-    planets.push(group);
-}
-
-createPlanet(50, '#2244ff', 700, 0.002);
-createPlanet(35, '#ff5500', 1050, 0.0016);
-createPlanet(60, '#88cc88', 1450, 0.001);
-
-// ----------------------------------
-// Humans (Animated)
-// ----------------------------------
-const humans = [];
-const mixers = [];
-const clock = new THREE.Clock();
-
-const loader = new GLTFLoader();
-loader.load('./human1.glb', (gltf) => {
-
-    const base = gltf.scene;
-    base.scale.set(10, 10, 10);
-
-    const clips = gltf.animations;
-
-    for (let i = 0; i < 25; i++) {
-
-        const human = SkeletonUtils.clone(base);
-        const mixer = new THREE.AnimationMixer(human);
-
-        if (clips.length) {
-            const action = mixer.clipAction(clips[0]);
-            action.play();
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/examples/jsm/controls/OrbitControls": "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js",
+                "three/examples/jsm/loaders/GLTFLoader": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js"
+            }
         }
+    </script>
 
-        const startPlanet = planets[Math.floor(Math.random() * planets.length)];
-        const targetPlanet = planets[Math.floor(Math.random() * planets.length)];
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+        import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
-        human.position.copy(startPlanet.position);
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 50000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        document.body.appendChild(renderer.domElement);
 
-        human.userData = {
-            from: startPlanet,
-            to: targetPlanet,
-            progress: Math.random(),
-            speed: 0.0015 + Math.random() * 0.002,
-            altitude: 50 + Math.random() * 120
+        const controls = new OrbitControls(camera, renderer.domElement);
+        camera.position.set(0, 1000, 3000);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 3.0)); 
+        const light = new THREE.DirectionalLight(0xffffff, 2);
+        light.position.set(1000, 1000, 1000);
+        scene.add(light);
+
+        // Planets
+        const planets = [];
+        const createPlanet = (radius, color, distance, speed) => {
+            const group = new THREE.Group();
+            const planet = new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 32), new THREE.MeshStandardMaterial({ color }));
+            group.add(planet);
+            group.userData = { distance, speed, angle: Math.random() * 6.28, radius };
+            scene.add(group);
+            planets.push(group);
         };
+        createPlanet(80, 0x2244ff, 800, 0.002); 
+        createPlanet(60, 0xff5500, 1300, 0.0015); 
+        createPlanet(100, 0x88cc88, 1800, 0.001); 
 
-        scene.add(human);
-        humans.push(human);
-        mixers.push(mixer);
-    }
-});
+        // --- Alien Swarm ---
+        let aliens = [];
+        let mixers = [];
+        const clock = new THREE.Clock();
+        const loader = new GLTFLoader();
 
-// ----------------------------------
-// Animation Loop
-// ----------------------------------
-function animate() {
-    requestAnimationFrame(animate);
+        loader.load('./human1.glb', (gltf) => {
+            // Scale normalization
+            const box = new THREE.Box3().setFromObject(gltf.scene);
+            const size = box.getSize(new THREE.Vector3());
+            const scaleFactor = 300 / Math.max(size.x, size.y, size.z);
 
-    const delta = clock.getDelta();
+            for(let i = 0; i < 8; i++) {
+                // We use gltf.scene directly for the first one, then clone for others
+                const alien = i === 0 ? gltf.scene : gltf.scene.clone();
+                
+                alien.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                const targetPlanet = planets[i % planets.length];
+                
+                alien.userData = { 
+                    targetPlanet, 
+                    orbitAngle: Math.random() * 6.28, 
+                    orbitDist: targetPlanet.userData.radius + 450,
+                    orbitSpeed: 0.005 + Math.random() * 0.005,
+                    yOffset: (Math.random() - 0.5) * 500
+                };
 
-    // Planets orbit
-    planets.forEach(p => {
-        p.userData.angle += p.userData.speed;
-        p.position.set(
-            Math.cos(p.userData.angle) * p.userData.distance,
-            0,
-            Math.sin(p.userData.angle) * p.userData.distance
-        );
-        p.rotation.y += 0.003;
-    });
+                // Setup Animation
+                const mixer = new THREE.AnimationMixer(alien);
+                if (gltf.animations.length > 0) {
+                    const action = mixer.clipAction(gltf.animations[0]);
+                    action.play();
+                }
+                mixers.push(mixer);
 
-    // Humans fly between planets
-    humans.forEach((h, i) => {
-        const d = h.userData;
+                scene.add(alien);
+                aliens.push(alien);
+            }
+        });
 
-        d.progress += d.speed;
-        if (d.progress >= 1) {
-            d.from = d.to;
-            d.to = planets[Math.floor(Math.random() * planets.length)];
-            d.progress = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            for (const mixer of mixers) mixer.update(delta);
+
+            planets.forEach(p => {
+                p.userData.angle += p.userData.speed;
+                p.position.set(Math.cos(p.userData.angle)*p.userData.distance, 0, Math.sin(p.userData.angle)*p.userData.distance);
+            });
+
+            aliens.forEach(a => {
+                a.userData.orbitAngle += a.userData.orbitSpeed;
+                const p = a.userData.targetPlanet;
+                a.position.set(
+                    p.position.x + Math.cos(a.userData.orbitAngle) * a.userData.orbitDist,
+                    p.position.y + a.userData.yOffset,
+                    p.position.z + Math.sin(a.userData.orbitAngle) * a.userData.orbitDist
+                );
+                a.lookAt(p.position);
+                a.rotateY(Math.PI); 
+            });
+
+            controls.update();
+            renderer.render(scene, camera);
         }
+        animate();
 
-        const pos = new THREE.Vector3().lerpVectors(
-            d.from.position,
-            d.to.position,
-            d.progress
-        );
-
-        pos.y += Math.sin(d.progress * Math.PI) * d.altitude;
-        h.position.copy(pos);
-
-        // Face movement direction
-        const next = new THREE.Vector3().lerpVectors(
-            d.from.position,
-            d.to.position,
-            Math.min(d.progress + 0.01, 1)
-        );
-        h.lookAt(next);
-        h.rotateY(Math.PI);
-
-        mixers[i].update(delta);
-    });
-
-    controls.update();
-    renderer.render(scene, camera);
-}
-
-animate();
-
-// ----------------------------------
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-</script>
-
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
 </html>
