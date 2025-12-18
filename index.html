@@ -3,20 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Lava Universe</title>
+    <title>Lava Universe - VL8R4eva</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
+
+        /* Fixed Image Overlay to prevent ToneMapping distortion */
         .profile-container {
-            position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
-            z-index: 100; cursor: pointer;
+            position: absolute; 
+            top: 30px; 
+            left: 50%; 
+            transform: translateX(-50%);
+            z-index: 1000; 
+            cursor: pointer;
         }
+
         .profile-overlay {
-            width: 100px; height: 100px; border-radius: 50%;
-            border: 2px solid #ff4400; box-shadow: 0 0 20px #ff4400;
-            transition: 0.3s ease-in-out;
+            width: 110px; 
+            height: 110px; 
+            border-radius: 50%;
+            border: 3px solid #ff4400; 
+            box-shadow: 0 0 25px #ff4400;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            object-fit: cover;
+            /* Ensures the image colors stay true and don't look "weird" */
+            image-rendering: auto;
+            background-color: #000;
         }
-        .profile-overlay:hover { transform: scale(1.1); box-shadow: 0 0 40px #ffaa00; }
+
+        .profile-overlay:hover { 
+            transform: scale(1.15); 
+            box-shadow: 0 0 50px #ffaa00; 
+            border-color: #ffaa00;
+        }
     </style>
 </head>
 <body>
@@ -46,7 +65,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         
-        // --- PRO RENDERING SETTINGS ---
+        // --- CINEMATIC LAVA RENDERING ---
         renderer.toneMapping = THREE.ReinhardToneMapping; 
         renderer.toneMappingExposure = 2.5; 
         renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -54,41 +73,42 @@
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        camera.position.set(0, 40000, 120000);
+        camera.position.set(0, 40000, 130000);
 
-        // --- Environment Map for reflections ---
+        // Environment for rock reflections
         const pmremGenerator = new THREE.PMREMGenerator(renderer);
         scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture;
 
-        // --- LIGHTING ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.1); 
+        // LIGHTING
+        const ambient = new THREE.AmbientLight(0xffffff, 0.15); 
         scene.add(ambient);
         
-        const lavaLight = new THREE.PointLight(0xff4400, 50, 600000, 1);
+        const lavaLight = new THREE.PointLight(0xff4400, 60, 800000, 1.5);
         scene.add(lavaLight);
 
-        // --- STARS ---
+        // STARS
         const starGeo = new THREE.BufferGeometry();
         const starCoords = [];
-        for(let i = 0; i < 20000; i++) starCoords.push((Math.random()-0.5)*1000000, (Math.random()-0.5)*1000000, (Math.random()-0.5)*1000000);
+        for(let i = 0; i < 25000; i++) starCoords.push((Math.random()-0.5)*1500000, (Math.random()-0.5)*1500000, (Math.random()-0.5)*1500000);
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 150, color: 0xffffff })));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 140, color: 0xffffff })));
 
         const mixers = [];
         const clock = new THREE.Clock();
         const loader = new GLTFLoader();
         let lavaPlanetGroup;
 
-        // LOAD LAVA PLANET ONLY
+        // LOAD LAVA PLANET
         loader.load('./lavaplanet.glb', (gltf) => {
             lavaPlanetGroup = gltf.scene;
-            lavaPlanetGroup.scale.set(15000, 15000, 15000);
+            lavaPlanetGroup.scale.set(16000, 16000, 16000);
             
             lavaPlanetGroup.traverse(child => {
                 if (child.isMesh) {
-                    child.material.emissive = new THREE.Color(0xff2200);
-                    child.material.emissiveIntensity = 15; 
-                    child.material.roughness = 0.3; 
+                    // This creates the intense "Sketchfab" lava glow
+                    child.material.emissive = new THREE.Color(0xff3300);
+                    child.material.emissiveIntensity = 18; 
+                    child.material.roughness = 0.25; 
                     child.material.metalness = 0.8; 
                 }
             });
@@ -103,12 +123,13 @@
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
-            
-            // Update planet animations (lava flow)
             mixers.forEach(m => m.update(delta));
             
-            // Slow rotation of the planet itself
-            if(lavaPlanetGroup) lavaPlanetGroup.rotation.y += 0.001;
+            if(lavaPlanetGroup) {
+                lavaPlanetGroup.rotation.y += 0.0015;
+                // Make the light pulse slightly with the lava
+                lavaLight.intensity = 50 + Math.sin(Date.now() * 0.001) * 10;
+            }
             
             controls.update();
             renderer.render(scene, camera);
