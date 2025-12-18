@@ -51,42 +51,28 @@
     // --- GLTF Model Loader with Face Overlay ---
 let faceOverlay = null; 
 
+// --- GLTF Model Loader with Texture Swap ---
 loader.load('./giant.glb', (gltf) => {
     cosmicGiant = gltf.scene;
-    cosmicGiant.scale.set(300, 300, 300); 
+    cosmicGiant.scale.set(300, 300, 300);
     cosmicGiant.position.set(0, 0, 0);
 
-    // 1. Calculate the model's dimensions automatically
-    const bbox = new THREE.Box3().setFromObject(cosmicGiant);
-    const height = bbox.max.y - bbox.min.y;
-
-    // 2. Load your face texture
     const texLoader = new THREE.TextureLoader();
-    const faceTexture = texLoader.load('./myface.png', (texture) => {
-        texture.colorSpace = THREE.SRGBColorSpace; 
-    });
-    
-    // 3. Create the face plate with a "force to front" material
-    const faceGeometry = new THREE.PlaneGeometry(60, 60); // Large enough to see
-    const faceMaterial = new THREE.MeshBasicMaterial({ 
-        map: faceTexture, 
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthTest: false,     // Disable depth testing to stay in front
-        depthWrite: false,    // Prevent it from hiding other things
-        polygonOffset: true,  // Move the layer slightly forward in space
-        polygonOffsetFactor: -4
-    });
-    
-    faceOverlay = new THREE.Mesh(faceGeometry, faceMaterial);
+    const myFaceTexture = texLoader.load('./myface.png');
+    myFaceTexture.flipY = false; // GLTF textures are usually flipped
 
-    // 4. Position the face at the top area of the model (the head)
-    // We push it forward on Z (60) so it's in front of the Superman nose.
-    faceOverlay.position.set(0, height * 0.92, 60); 
-    
-    cosmicGiant.add(faceOverlay); 
+    cosmicGiant.traverse((child) => {
+        if (child.isMesh) {
+            // This looks for parts of the model named 'head', 'face', or 'skin'
+            // Professional models usually label their parts
+            if (child.name.toLowerCase().includes('head') || child.name.toLowerCase().includes('face')) {
+                child.material.map = myFaceTexture;
+                child.material.needsUpdate = true;
+            }
+        }
+    });
+
     scene.add(cosmicGiant);
-
 }, undefined, (error) => {
     console.error('Error loading:', error);
 });
