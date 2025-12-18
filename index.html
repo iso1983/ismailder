@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Cosmic Superman</title>
+    <title>Three.js Cosmic Human Flight</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
@@ -35,71 +35,13 @@
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        camera.position.set(0, 500, 1500);
+        camera.position.set(0, 800, 1500);
 
         // --- Lighting ---
-        scene.add(new THREE.AmbientLight(0xffffff, 1.2)); 
-        const sunLight = new THREE.PointLight(0xffffff, 5, 10000);
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5)); 
+        const sunLight = new THREE.PointLight(0xffffff, 8, 10000);
         sunLight.position.set(1000, 1000, 1000);
         scene.add(sunLight);
-
-        // --- GLTF Model Loader with Face Overlay ---
-        let cosmicGiant = null;
-        let faceOverlay = null; 
-        const loader = new GLTFLoader();
-
-    // --- GLTF Model Loader with Face Overlay ---
-let faceOverlay = null; 
-
-// --- GLTF Model Loader with Texture Swap ---
-loader.load('./giant.glb', (gltf) => {
-    cosmicGiant = gltf.scene;
-    cosmicGiant.scale.set(300, 300, 300);
-    cosmicGiant.position.set(0, 0, 0);
-
-    const texLoader = new THREE.TextureLoader();
-    const myFaceTexture = texLoader.load('./myface.png');
-    myFaceTexture.flipY = false; // GLTF textures are usually flipped
-
-    cosmicGiant.traverse((child) => {
-        if (child.isMesh) {
-            // This looks for parts of the model named 'head', 'face', or 'skin'
-            // Professional models usually label their parts
-            if (child.name.toLowerCase().includes('head') || child.name.toLowerCase().includes('face')) {
-                child.material.map = myFaceTexture;
-                child.material.needsUpdate = true;
-            }
-        }
-    });
-
-    scene.add(cosmicGiant);
-}, undefined, (error) => {
-    console.error('Error loading:', error);
-});
-
-// --- Update your Animate function to include Billboarding ---
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (cosmicGiant) {
-        cosmicGiant.position.y = Math.sin(Date.now() * 0.0005) * 30;
-        cosmicGiant.rotation.y += 0.001; 
-
-        // Billboard: Force face to always look at the camera
-        if (faceOverlay) {
-            faceOverlay.quaternion.copy(camera.quaternion);
-        }
-    }
-
-    planets.forEach(p => {
-        p.userData.angle += p.userData.speed;
-        p.position.set(Math.cos(p.userData.angle) * p.userData.distance, 0, Math.sin(p.userData.angle) * p.userData.distance);
-        p.rotation.y += 0.005;
-    });
-
-    controls.update();
-    renderer.render(scene, camera);
-}
 
         // --- Starfield ---
         const starCoords = [];
@@ -111,38 +53,91 @@ function animate() {
         scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 2, color: 0xffffff })));
 
         // --- Planet Generator ---
+        const createPlanetTexture = (color) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 512;
+            const context = canvas.getContext('2d');
+            context.fillStyle = color;
+            context.fillRect(0, 0, 1024, 512);
+            for(let i=0; i<2000; i++) {
+                context.fillStyle = `rgba(0,0,0,${Math.random() * 0.4})`;
+                context.beginPath();
+                context.arc(Math.random()*1024, Math.random()*512, Math.random()*4, 0, Math.PI*2);
+                context.fill();
+            }
+            return new THREE.CanvasTexture(canvas);
+        };
+
         const planets = [];
         const createPlanet = (radius, color, distance, speed) => {
             const group = new THREE.Group();
             const planet = new THREE.Mesh(
-                new THREE.SphereGeometry(radius, 32, 32),
-                new THREE.MeshStandardMaterial({ color: color, metalness: 0.1, roughness: 0.8 })
+                new THREE.SphereGeometry(radius, 64, 64),
+                new THREE.MeshStandardMaterial({ map: createPlanetTexture(color), metalness: 0.1, roughness: 0.8 })
             );
             group.add(planet);
-            group.userData = { distance, speed, angle: Math.random() * Math.PI * 2 };
+            group.userData = { distance, speed, angle: Math.random() * Math.PI * 2, radius };
             scene.add(group);
             planets.push(group);
         };
 
-        createPlanet(50, 0x2244ff, 700, 0.002); 
-        createPlanet(35, 0xff5500, 1100, 0.0015); 
+        createPlanet(50, '#2244ff', 700, 0.002); 
+        createPlanet(35, '#ff5500', 1000, 0.0015); 
+        createPlanet(60, '#88cc88', 1400, 0.001); 
+
+        // --- Loading the Human Model ---
+        const ships = [];
+        const loader = new GLTFLoader();
+
+        // Load the model ONCE, then clone it for the swarm
+        loader.load('./human1.glb', (gltf) => {
+            const baseHuman = gltf.scene;
+            
+            // Adjust this scale if the human is too small or too big
+            baseHuman.scale.set(10, 10, 10); 
+
+            for(let i=0; i<30; i++) {
+                const humanClone = baseHuman.clone();
+                const targetPlanet = planets[Math.floor(Math.random() * planets.length)];
+                
+                humanClone.userData = { 
+                    targetPlanet: targetPlanet,
+                    orbitAngle: Math.random() * Math.PI * 2,
+                    orbitSpeed: 0.005 + Math.random() * 0.01,
+                    orbitDistance: targetPlanet.userData.radius + (50 + Math.random() * 50),
+                    floatOffset: Math.random() * 10
+                };
+
+                scene.add(humanClone);
+                ships.push(humanClone);
+            }
+        });
 
         // --- Animation Loop ---
         function animate() {
             requestAnimationFrame(animate);
 
-            if (cosmicGiant) {
-                cosmicGiant.rotation.y += 0.001; 
-
-                // Makes the face plate always face the camera
-                if (faceOverlay) {
-                    faceOverlay.quaternion.copy(camera.quaternion);
-                }
-            }
-
             planets.forEach(p => {
                 p.userData.angle += p.userData.speed;
                 p.position.set(Math.cos(p.userData.angle) * p.userData.distance, 0, Math.sin(p.userData.angle) * p.userData.distance);
+                p.rotation.y += 0.005;
+            });
+
+            ships.forEach(human => {
+                const p = human.userData.targetPlanet;
+                human.userData.orbitAngle += human.userData.orbitSpeed;
+                
+                // Calculate position around the planet
+                const x = p.position.x + Math.cos(human.userData.orbitAngle) * human.userData.orbitDistance;
+                const y = p.position.y + Math.sin(human.userData.orbitAngle * 0.5) * 30;
+                const z = p.position.z + Math.sin(human.userData.orbitAngle) * human.userData.orbitDistance;
+                
+                human.position.set(x, y, z);
+                
+                // Make the human look where they are going
+                human.lookAt(p.position);
+                // Adjust rotation so they aren't flying "sideways" (depends on your .glb orientation)
+                human.rotateY(Math.PI); 
             });
 
             controls.update();
