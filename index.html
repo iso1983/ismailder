@@ -35,16 +35,13 @@
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        camera.position.set(0, 800, 1500);
+        camera.position.set(0, 800, 2000); // Backed up camera to see everything
 
         // --- Lighting ---
         scene.add(new THREE.AmbientLight(0xffffff, 1.5)); 
         const sunLight = new THREE.PointLight(0xffffff, 8, 10000);
         sunLight.position.set(1000, 1000, 1000);
         scene.add(sunLight);
-        const fillLight = new THREE.DirectionalLight(0x00ffff, 2);
-        fillLight.position.set(-1000, 500, -500);
-        scene.add(fillLight);
 
         // --- GLTF Model Loader with Face Overlay ---
         let cosmicGiant = null;
@@ -56,34 +53,29 @@
             cosmicGiant.scale.set(300, 300, 300); 
             cosmicGiant.position.set(0, 0, 0);
 
-            // 1. Calculate the model's dimensions automatically
+            // Calculate height for positioning
             const bbox = new THREE.Box3().setFromObject(cosmicGiant);
             const height = bbox.max.y - bbox.min.y;
 
-            // 2. Load your face texture
+            // Load face texture
             const texLoader = new THREE.TextureLoader();
-            const faceTexture = texLoader.load('./myface.png', (texture) => {
-                texture.colorSpace = THREE.SRGBColorSpace; 
+            texLoader.load('./myface.png', (texture) => {
+                const faceGeometry = new THREE.PlaneGeometry(100, 100); // Large size for easy finding
+                const faceMaterial = new THREE.MeshBasicMaterial({ 
+                    map: texture, 
+                    transparent: true,
+                    side: THREE.DoubleSide,
+                    depthTest: false,
+                    polygonOffset: true,
+                    polygonOffsetFactor: -10 // Forces it to the very front
+                });
+                
+                faceOverlay = new THREE.Mesh(faceGeometry, faceMaterial);
+                // Position near the top of the model
+                faceOverlay.position.set(0, height * 0.9, 100); 
+                cosmicGiant.add(faceOverlay);
             });
-            
-            // 3. Create the face plate with "force to front" material
-            const faceGeometry = new THREE.PlaneGeometry(60, 60); 
-            const faceMaterial = new THREE.MeshBasicMaterial({ 
-                map: faceTexture, 
-                transparent: true,
-                side: THREE.DoubleSide,
-                depthTest: false,     // Disable depth testing to stay in front
-                depthWrite: false,    // Prevent it from hiding other scene elements
-                polygonOffset: true,  // Mathematically push the layer forward
-                polygonOffsetFactor: -4
-            });
-            
-            faceOverlay = new THREE.Mesh(faceGeometry, faceMaterial);
 
-            // 4. Auto-position at the head (92% of calculated height)
-            faceOverlay.position.set(0, height * 0.92, 60); 
-            
-            cosmicGiant.add(faceOverlay); 
             scene.add(cosmicGiant);
 
         }, undefined, (error) => {
@@ -100,113 +92,37 @@
         scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 2, color: 0xffffff })));
 
         // --- Planet Generator ---
-        const createPlanetTexture = (color) => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1024; canvas.height = 512;
-            const context = canvas.getContext('2d');
-            context.fillStyle = color;
-            context.fillRect(0, 0, 1024, 512);
-            for(let i=0; i<2000; i++) {
-                context.fillStyle = `rgba(0,0,0,${Math.random() * 0.4})`;
-                context.beginPath();
-                context.arc(Math.random()*1024, Math.random()*512, Math.random()*4, 0, Math.PI*2);
-                context.fill();
-            }
-            return new THREE.CanvasTexture(canvas);
-        };
-
         const planets = [];
         const createPlanet = (radius, color, distance, speed) => {
             const group = new THREE.Group();
             const planet = new THREE.Mesh(
                 new THREE.SphereGeometry(radius, 64, 64),
-                new THREE.MeshStandardMaterial({ map: createPlanetTexture(color), metalness: 0.1, roughness: 0.8 })
+                new THREE.MeshStandardMaterial({ color: color, metalness: 0.1, roughness: 0.8 })
             );
             group.add(planet);
-            group.userData = { distance, speed, angle: Math.random() * Math.PI * 2, radius };
+            group.userData = { distance, speed, angle: Math.random() * Math.PI * 2 };
             scene.add(group);
             planets.push(group);
         };
 
-        createPlanet(50, '#2244ff', 700, 0.002); 
-        createPlanet(35, '#ff5500', 1000, 0.0015); 
-        createPlanet(60, '#88cc88', 1400, 0.001); 
-
-        // --- Ships & Lasers ---
-        const ships = [];
-        const lasers = [];
-        const createShip = (teamColor) => {
-            const group = new THREE.Group();
-            group.add(new THREE.Mesh(new THREE.BoxGeometry(4, 2, 10), new THREE.MeshStandardMaterial({ color: teamColor })));
-            const targetPlanet = planets[Math.floor(Math.random() * planets.length)];
-            group.userData = { 
-                team: teamColor, 
-                targetPlanet: targetPlanet,
-                orbitAngle: Math.random() * Math.PI * 2,
-                orbitSpeed: 0.01 + Math.random() * 0.01,
-                orbitDistance: targetPlanet.userData.radius + 40,
-                lastShot: 0 
-            };
-            scene.add(group);
-            ships.push(group);
-        };
-
-        for(let i=0; i<30; i++) createShip(i % 2 === 0 ? 0x00f0ff : 0xff0055);
-
-        function shootLaser(ship) {
-            const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 30), new THREE.MeshBasicMaterial({ color: ship.userData.team }));
-            laser.position.copy(ship.position);
-            laser.quaternion.copy(ship.quaternion);
-            laser.rotateX(Math.PI / 2);
-            laser.userData = { life: 100 };
-            scene.add(laser);
-            lasers.push(laser);
-        }
+        createPlanet(50, 0x2244ff, 800, 0.002); 
+        createPlanet(35, 0xff5500, 1200, 0.0015); 
 
         // --- Animation Loop ---
         function animate() {
             requestAnimationFrame(animate);
 
             if (cosmicGiant) {
-                cosmicGiant.position.y = Math.sin(Date.now() * 0.0005) * 30;
-                cosmicGiant.rotation.y += 0.001; 
-
-                // Billboard: Force face to always look at camera
+                cosmicGiant.rotation.y += 0.002;
                 if (faceOverlay) {
-                    faceOverlay.quaternion.copy(camera.quaternion);
+                    faceOverlay.quaternion.copy(camera.quaternion); // Billboard effect
                 }
             }
 
             planets.forEach(p => {
                 p.userData.angle += p.userData.speed;
-                p.position.set(Math.cos(p.userData.angle) * p.userData.distance, 0, Math.sin(p.userData.angle) * p.userData.distance);
-                p.rotation.y += 0.005;
+                p.position.set(Math.cos(p.userData.angle) * p.userData.dist, 0, Math.sin(p.userData.angle) * p.userData.dist);
             });
-
-            ships.forEach(ship => {
-                const p = ship.userData.targetPlanet;
-                ship.userData.orbitAngle += ship.userData.orbitSpeed;
-                ship.position.set(
-                    p.position.x + Math.cos(ship.userData.orbitAngle) * ship.userData.orbitDistance,
-                    p.position.y + Math.sin(ship.userData.orbitAngle * 0.5) * 15,
-                    p.position.z + Math.sin(ship.userData.orbitAngle) * ship.userData.orbitDistance
-                );
-                ship.lookAt(p.position);
-                ship.rotateY(Math.PI / 2);
-
-                if (Date.now() - ship.userData.lastShot > 15000 && Math.random() > 0.999) {
-                    shootLaser(ship);
-                    ship.userData.lastShot = Date.now();
-                }
-            });
-
-            for (let i = lasers.length - 1; i >= 0; i--) {
-                lasers[i].translateY(15);
-                if (--lasers[i].userData.life <= 0) {
-                    scene.remove(lasers[i]);
-                    lasers.splice(i, 1);
-                }
-            }
 
             controls.update();
             renderer.render(scene, camera);
