@@ -3,39 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lava Universe with Alien - VL8R4eva</title>
+    <title>Lava Universe Dashboard - VL8R4eva</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         canvas { display: block; }
 
+        /* Profile Image */
         .profile-container {
-            position: absolute; 
-            top: 30px; 
-            left: 50%; 
-            transform: translateX(-50%);
-            z-index: 1000; 
-            cursor: pointer;
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; cursor: pointer;
         }
-
         .profile-overlay {
-            width: 110px; 
-            height: 110px; 
-            border-radius: 50%;
-            border: 3px solid #ff4400; 
-            box-shadow: 0 0 25px #ff4400;
-            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            object-fit: cover;
-            background-color: #000;
+            width: 80px; height: 80px; border-radius: 50%;
+            border: 2px solid #ff4400; box-shadow: 0 0 15px #ff4400;
+            transition: 0.3s; object-fit: cover;
         }
 
-        .profile-overlay:hover { 
-            transform: scale(1.15); 
-            box-shadow: 0 0 50px #ffaa00; 
-            border-color: #ffaa00;
+        /* Information Dashboard Overlay */
+        .dashboard {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 280px;
+            z-index: 1000;
+            color: white;
+            background: rgba(255, 68, 0, 0.1);
+            backdrop-filter: blur(10px); /* Glass effect */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        .dashboard h2 { margin: 0 0 15px 0; font-size: 18px; color: #ffaa00; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #ff4400; padding-bottom: 5px; }
+
+        .info-slot { margin-bottom: 15px; }
+        .info-label { font-size: 12px; color: #aaa; text-transform: uppercase; }
+        .info-value { font-size: 20px; font-weight: bold; color: #fff; }
+        .up { color: #00ff88; font-size: 14px; }
+
+        .whale-alert {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 3px solid #00fff2;
+            padding: 10px;
+            font-size: 13px;
+            margin-top: 10px;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
+
+    <div class="dashboard">
+        <h2>Market Terminal</h2>
+        
+        <div class="info-slot">
+            <div class="info-label">Bitcoin (BTC)</div>
+            <div class="info-value">$96,420.00 <span class="up">▲ 2.4%</span></div>
+        </div>
+
+        <div class="info-slot">
+            <div class="info-label">Ethereum (ETH)</div>
+            <div class="info-value">$3,512.45 <span class="up">▲ 1.8%</span></div>
+        </div>
+
+        <div class="info-label">Whale Alerts</div>
+        <div class="whale-alert">
+            🚨 1,500 #BTC (144M USD) transferred from Unknown Wallet to #Binance
+        </div>
+        <div class="whale-alert">
+            🐋 25,000 #ETH (87M USD) moved between Unknown Wallets
+        </div>
+    </div>
+
     <div class="profile-container">
         <img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" class="profile-overlay">
     </div>
@@ -70,12 +110,9 @@
         controls.enableDamping = true;
         camera.position.set(0, 80000, 250000);
 
-        // --- Lighting ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.15); 
-        scene.add(ambient);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.15));
         const lavaLight = new THREE.PointLight(0xff4400, 60, 1000000, 1.5);
 
-        // --- Stars ---
         const starCoords = [];
         for(let i = 0; i < 30000; i++) starCoords.push((Math.random()-0.5)*2000000, (Math.random()-0.5)*2000000, (Math.random()-0.5)*2000000);
         const starGeo = new THREE.BufferGeometry();
@@ -86,47 +123,27 @@
         const clock = new THREE.Clock();
         const loader = new GLTFLoader();
         
-        // Motion variables
         let lavaPlanet, alienModel;
         let orbitAngle = 0;
         let alienOrbitAngle = 0;
-        const orbitRadius = 150000;
-        const orbitSpeed = 0.0002;
 
-        // 1. LOAD LAVA PLANET
         loader.load('./lavaplanet.glb', (gltf) => {
             lavaPlanet = gltf.scene;
             lavaPlanet.scale.set(18000, 18000, 18000);
-            
-            lavaPlanet.traverse(child => {
-                if (child.isMesh) {
-                    child.material.emissive = new THREE.Color(0xff3300);
-                    child.material.emissiveIntensity = 20; 
-                }
-            });
-
+            lavaPlanet.traverse(child => { if (child.isMesh) { child.material.emissiveIntensity = 20; } });
             lavaPlanet.add(lavaLight);
             scene.add(lavaPlanet);
-
             const mixer = new THREE.AnimationMixer(lavaPlanet);
             gltf.animations.forEach(clip => mixer.clipAction(clip).play());
             mixers.push(mixer);
         });
 
-        // 2. LOAD ALIEN.GLB
         loader.load('./alien.glb', (gltf) => {
             alienModel = gltf.scene;
-            
-            // Scaled large enough to see against the planet
             alienModel.scale.set(8000, 8000, 8000); 
-            
             scene.add(alienModel);
-
             const mixer = new THREE.AnimationMixer(alienModel);
-            if (gltf.animations.length > 0) {
-                mixer.clipAction(gltf.animations[0]).play();
-                mixers.push(mixer);
-            }
+            if (gltf.animations.length > 0) { mixer.clipAction(gltf.animations[0]).play(); mixers.push(mixer); }
         });
 
         function animate() {
@@ -135,29 +152,18 @@
             mixers.forEach(m => m.update(delta));
             
             if(lavaPlanet) {
-                // Planet Orbit
-                orbitAngle += orbitSpeed;
-                lavaPlanet.position.x = Math.cos(orbitAngle) * orbitRadius;
-                lavaPlanet.position.z = Math.sin(orbitAngle) * orbitRadius;
-                lavaPlanet.position.y = Math.sin(orbitAngle * 0.5) * 20000;
+                orbitAngle += 0.0002;
+                lavaPlanet.position.x = Math.cos(orbitAngle) * 150000;
+                lavaPlanet.position.z = Math.sin(orbitAngle) * 150000;
                 lavaPlanet.rotation.y += 0.001;
 
-                // Alien Orbit (Following the planet)
                 if (alienModel) {
-                    alienOrbitAngle += 0.005; // Alien moves faster than planet
-                    const alienDist = 45000; // Distance from planet center
-                    
-                    alienModel.position.x = lavaPlanet.position.x + Math.cos(alienOrbitAngle) * alienDist;
-                    alienModel.position.z = lavaPlanet.position.z + Math.sin(alienOrbitAngle) * alienDist;
-                    alienModel.position.y = lavaPlanet.position.y + Math.cos(alienOrbitAngle * 0.5) * 10000;
-                    
-                    // Point alien toward the planet or movement direction
+                    alienOrbitAngle += 0.005;
+                    alienModel.position.x = lavaPlanet.position.x + Math.cos(alienOrbitAngle) * 45000;
+                    alienModel.position.z = lavaPlanet.position.z + Math.sin(alienOrbitAngle) * 45000;
                     alienModel.lookAt(lavaPlanet.position);
                 }
-
-                lavaLight.intensity = 60 + Math.sin(Date.now() * 0.001) * 15;
             }
-            
             controls.update();
             renderer.render(scene, camera);
         }
