@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Animated Lava Swarm - VL8R4eva</title>
+    <title>Cinematic Lava Swarm - VL8R4eva</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
@@ -58,29 +58,38 @@
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 1000000);
+        
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        
+        // --- CINEMATIC SETTINGS: This fixes the "grey" look ---
         renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping; // Makes colors look more realistic/cinematic
+        renderer.toneMappingExposure = 1.2; 
+        
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        camera.position.set(0, 30000, 80000);
+        camera.position.set(0, 30000, 100000);
 
-        // --- Lighting: Lower Ambient to let the Lava Glow shine ---
-        scene.add(new THREE.AmbientLight(0xffffff, 0.8)); 
-        const pointLight = new THREE.PointLight(0xff6600, 5, 200000);
-        scene.add(pointLight);
+        // --- Lighting: Much lower ambient, stronger Point Light ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.2); // VERY low ambient so blacks stay black
+        scene.add(ambient);
+        
+        const lavaGlow = new THREE.PointLight(0xff4400, 20, 500000);
+        lavaGlow.position.set(0, 0, 0); // Put light near the planet center
+        scene.add(lavaGlow);
 
         // --- Stars ---
         const starCoords = [];
         for(let i = 0; i < 30000; i++) {
-            starCoords.push((Math.random() - 0.5) * 500000, (Math.random() - 0.5) * 500000, (Math.random() - 0.5) * 500000);
+            starCoords.push((Math.random() - 0.5) * 800000, (Math.random() - 0.5) * 800000, (Math.random() - 0.5) * 800000);
         }
         const starGeo = new THREE.BufferGeometry();
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 80, color: 0xffffff })));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 100, color: 0xffffff })));
 
         const planets = [];
         const aliens = [];
@@ -96,15 +105,21 @@
             return group;
         };
 
-        // 1. LOAD LAVA PLANET (With Animation Support)
+        // 1. LOAD LAVA PLANET
         loader.load('./lavaplanet.glb', (gltf) => {
             const lavaPlanet = gltf.scene;
-            lavaPlanet.scale.set(8000, 8000, 8000); 
+            lavaPlanet.scale.set(12000, 12000, 12000); 
             
-            const orbitGroup = createOrbitGroup(40000, 0.0005);
+            // Material Fix: Loop through model and boost the "Emissive" (glow)
+            lavaPlanet.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.emissiveIntensity = 5.0; // Boosts the lava glow brightness
+                }
+            });
+
+            const orbitGroup = createOrbitGroup(50000, 0.0003);
             orbitGroup.add(lavaPlanet);
 
-            // Activate Planet Animations (This makes the lava flow)
             const planetMixer = new THREE.AnimationMixer(lavaPlanet);
             gltf.animations.forEach((clip) => {
                 planetMixer.clipAction(clip).play();
@@ -112,11 +127,7 @@
             mixers.push(planetMixer);
         });
 
-        // 2. OTHER PLANETS
-        const p1 = createOrbitGroup(20000, 0.001);
-        p1.add(new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 32), new THREE.MeshStandardMaterial({color: 0x2244ff})));
-
-        // 3. LOAD ALIEN SWARM
+        // 2. LOAD ALIEN SWARM
         loader.load('./human1.glb', (gltf) => {
             const model = gltf.scene;
             const box = new THREE.Box3().setFromObject(model);
@@ -129,11 +140,11 @@
                 alienWrapper.add(clone);
                 alienWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
                 
-                const targetPlanet = planets[i % planets.length];
+                const targetPlanet = planets[0]; // All orbit the lava planet
                 alienWrapper.userData = { 
                     targetPlanet, 
                     orbitAngle: Math.random() * Math.PI * 2, 
-                    orbitDist: 30000 + (Math.random() * 15000), 
+                    orbitDist: 40000 + (Math.random() * 20000), 
                     orbitSpeed: 0.001
                 };
 
@@ -151,8 +162,6 @@
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
-            
-            // Updates BOTH the humans AND the lava planet animations
             mixers.forEach(m => m.update(delta));
 
             planets.forEach(p => {
@@ -162,16 +171,16 @@
                     0, 
                     Math.sin(p.userData.angle) * p.userData.distance
                 );
-                // Rotate the planet group itself for extra movement
-                p.rotation.y += 0.002;
+                p.rotation.y += 0.001;
             });
 
             aliens.forEach(a => {
                 const p = a.userData.targetPlanet;
+                if(!p) return;
                 a.userData.orbitAngle += a.userData.orbitSpeed;
                 a.position.set(
                     p.position.x + Math.cos(a.userData.orbitAngle) * a.userData.orbitDist,
-                    p.position.y + Math.sin(a.userData.orbitAngle * 2) * 2000, 
+                    p.position.y + Math.sin(a.userData.orbitAngle * 2) * 3000, 
                     p.position.z + Math.sin(a.userData.orbitAngle) * a.userData.orbitDist
                 );
                 a.lookAt(p.position);
