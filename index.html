@@ -48,96 +48,47 @@
 
         // --- GLTF Model Loader with Face Overlay ---
         let cosmicGiant = null;
-        let faceOverlay = null; // Global reference for the billboard effect
+        let faceOverlay = null; 
         const loader = new GLTFLoader();
 
-    // --- GLTF Model Loader with Face Overlay ---
-let faceOverlay = null; 
+        loader.load('./giant.glb', (gltf) => {
+            cosmicGiant = gltf.scene;
+            cosmicGiant.scale.set(300, 300, 300); 
+            cosmicGiant.position.set(0, 0, 0);
 
-loader.load('./giant.glb', (gltf) => {
-    cosmicGiant = gltf.scene;
-    cosmicGiant.scale.set(300, 300, 300); 
-    cosmicGiant.position.set(0, 0, 0);
+            // 1. Calculate the model's dimensions automatically
+            const bbox = new THREE.Box3().setFromObject(cosmicGiant);
+            const height = bbox.max.y - bbox.min.y;
 
-    // Calculate height automatically
-    const bbox = new THREE.Box3().setFromObject(cosmicGiant);
-    const height = bbox.max.y - bbox.min.y;
+            // 2. Load your face texture
+            const texLoader = new THREE.TextureLoader();
+            const faceTexture = texLoader.load('./myface.png', (texture) => {
+                texture.colorSpace = THREE.SRGBColorSpace; 
+            });
+            
+            // 3. Create the face plate with "force to front" material
+            const faceGeometry = new THREE.PlaneGeometry(60, 60); 
+            const faceMaterial = new THREE.MeshBasicMaterial({ 
+                map: faceTexture, 
+                transparent: true,
+                side: THREE.DoubleSide,
+                depthTest: false,     // Disable depth testing to stay in front
+                depthWrite: false,    // Prevent it from hiding other scene elements
+                polygonOffset: true,  // Mathematically push the layer forward
+                polygonOffsetFactor: -4
+            });
+            
+            faceOverlay = new THREE.Mesh(faceGeometry, faceMaterial);
 
-    // --- Create the Face Overlay ---
-    const texLoader = new THREE.TextureLoader();
-    const faceTexture = texLoader.load('./myface.png', (texture) => {
-        texture.colorSpace = THREE.SRGBColorSpace; // Match model color space
-    });
-    
-    // Make the plane slightly larger and transparent
-    const faceGeometry = new THREE.PlaneGeometry(50, 50); 
-    const faceMaterial = new THREE.MeshBasicMaterial({ 
-        map: faceTexture, 
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthTest: false // Renders on top of the model
-    });
-    faceOverlay = new THREE.Mesh(faceGeometry, faceMaterial);
+            // 4. Auto-position at the head (92% of calculated height)
+            faceOverlay.position.set(0, height * 0.92, 60); 
+            
+            cosmicGiant.add(faceOverlay); 
+            scene.add(cosmicGiant);
 
-    // Auto-position based on calculated height
-    // Height * 0.9 reaches the head area
-    faceOverlay.position.set(0, height * 0.9, 40); 
-    
-    cosmicGiant.add(faceOverlay); 
-    scene.add(cosmicGiant);
-
-}, undefined, (error) => {
-    console.error('Error loading:', error);
-});
-
-// --- Updated Animation Loop ---
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (cosmicGiant) {
-        cosmicGiant.position.y = Math.sin(Date.now() * 0.0005) * 30;
-        cosmicGiant.rotation.y += 0.001; 
-
-        // Billboard effect: Force face to always look at camera
-        if (faceOverlay) {
-            faceOverlay.quaternion.copy(camera.quaternion);
-        }
-    }
-
-    planets.forEach(p => {
-        p.userData.angle += p.userData.speed;
-        p.position.set(Math.cos(p.userData.angle) * p.userData.distance, 0, Math.sin(p.userData.angle) * p.userData.distance);
-        p.rotation.y += 0.005;
-    });
-
-    ships.forEach(ship => {
-        const p = ship.userData.targetPlanet;
-        ship.userData.orbitAngle += ship.userData.orbitSpeed;
-        ship.position.set(
-            p.position.x + Math.cos(ship.userData.orbitAngle) * ship.userData.orbitDistance,
-            p.position.y + Math.sin(ship.userData.orbitAngle * 0.5) * 15,
-            p.position.z + Math.sin(ship.userData.orbitAngle) * ship.userData.orbitDistance
-        );
-        ship.lookAt(p.position);
-        ship.rotateY(Math.PI / 2);
-
-        if (Date.now() - ship.userData.lastShot > 15000 && Math.random() > 0.999) {
-            shootLaser(ship);
-            ship.userData.lastShot = Date.now();
-        }
-    });
-
-    for (let i = lasers.length - 1; i >= 0; i--) {
-        lasers[i].translateY(15);
-        if (--lasers[i].userData.life <= 0) {
-            scene.remove(lasers[i]);
-            lasers.splice(i, 1);
-        }
-    }
-
-    controls.update();
-    renderer.render(scene, camera);
-}
+        }, undefined, (error) => {
+            console.error('Error loading:', error);
+        });
 
         // --- Starfield ---
         const starCoords = [];
@@ -217,10 +168,10 @@ function animate() {
             requestAnimationFrame(animate);
 
             if (cosmicGiant) {
-                cosmicGiant.position.y = Math.sin(Date.now() * 0.0005) * 30; // Float animation
-                cosmicGiant.rotation.y += 0.001; // Slow rotation
+                cosmicGiant.position.y = Math.sin(Date.now() * 0.0005) * 30;
+                cosmicGiant.rotation.y += 0.001; 
 
-                // Billboard effect: Face always looks at camera
+                // Billboard: Force face to always look at camera
                 if (faceOverlay) {
                     faceOverlay.quaternion.copy(camera.quaternion);
                 }
