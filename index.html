@@ -3,42 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinematic Lava Swarm - VL8R4eva</title>
+    <title>Ultimate Lava Swarm</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
-
         .profile-container {
-            position: absolute;
-            top: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 100;
-            cursor: pointer;
+            position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 100; cursor: pointer;
         }
-
         .profile-overlay {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 3px solid #ff4400;
-            box-shadow: 0 0 20px #ff4400;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            object-fit: cover;
+            width: 100px; height: 100px; border-radius: 50%;
+            border: 2px solid #ff4400; box-shadow: 0 0 20px #ff4400;
+            transition: 0.3s ease-in-out;
         }
-
-        .profile-overlay:hover {
-            transform: scale(1.2);
-            box-shadow: 0 0 40px #ffcc00, 0 0 60px #ff4400;
-        }
+        .profile-overlay:hover { transform: scale(1.1); box-shadow: 0 0 40px #ffaa00; }
     </style>
 </head>
 <body>
-
     <div class="profile-container">
-        <img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" 
-             alt="Profile" 
-             class="profile-overlay">
+        <img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" class="profile-overlay">
     </div>
 
     <script type="importmap">
@@ -57,105 +40,93 @@
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 1000000);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 2000000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
         
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         
-        // --- CINEMATIC SETTINGS: This fixes the "grey" look ---
+        // --- PRO RENDERING SETTINGS ---
+        renderer.toneMapping = THREE.ReinhardToneMapping; // Better for bright lava highlights
+        renderer.toneMappingExposure = 2.5; 
         renderer.outputColorSpace = THREE.SRGBColorSpace;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping; // Makes colors look more realistic/cinematic
-        renderer.toneMappingExposure = 1.2; 
-        
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        camera.position.set(0, 30000, 100000);
+        camera.position.set(0, 40000, 120000);
 
-        // --- Lighting: Much lower ambient, stronger Point Light ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.2); // VERY low ambient so blacks stay black
+        // --- THE "SECRET SAUCE": Environment Map ---
+        // This adds reflections to the rock so it isn't just flat grey
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture;
+
+        // --- LIGHTING ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.1); // Keep it dark
         scene.add(ambient);
         
-        const lavaGlow = new THREE.PointLight(0xff4400, 20, 500000);
-        lavaGlow.position.set(0, 0, 0); // Put light near the planet center
-        scene.add(lavaGlow);
+        const lavaLight = new THREE.PointLight(0xff4400, 50, 600000, 1);
+        scene.add(lavaLight);
 
-        // --- Stars ---
-        const starCoords = [];
-        for(let i = 0; i < 30000; i++) {
-            starCoords.push((Math.random() - 0.5) * 800000, (Math.random() - 0.5) * 800000, (Math.random() - 0.5) * 800000);
-        }
+        // --- STARS ---
         const starGeo = new THREE.BufferGeometry();
+        const starCoords = [];
+        for(let i = 0; i < 20000; i++) starCoords.push((Math.random()-0.5)*1000000, (Math.random()-0.5)*1000000, (Math.random()-0.5)*1000000);
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 100, color: 0xffffff })));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 150, color: 0xffffff })));
 
-        const planets = [];
-        const aliens = [];
         const mixers = [];
         const clock = new THREE.Clock();
         const loader = new GLTFLoader();
+        let lavaPlanetGroup;
 
-        const createOrbitGroup = (distance, speed) => {
-            const group = new THREE.Group();
-            group.userData = { distance, speed, angle: Math.random() * Math.PI * 2 };
-            scene.add(group);
-            planets.push(group);
-            return group;
-        };
-
-        // 1. LOAD LAVA PLANET
+        // LOAD LAVA PLANET
         loader.load('./lavaplanet.glb', (gltf) => {
-            const lavaPlanet = gltf.scene;
-            lavaPlanet.scale.set(12000, 12000, 12000); 
+            lavaPlanetGroup = gltf.scene;
+            lavaPlanetGroup.scale.set(15000, 15000, 15000);
             
-            // Material Fix: Loop through model and boost the "Emissive" (glow)
-            lavaPlanet.traverse((child) => {
+            lavaPlanetGroup.traverse(child => {
                 if (child.isMesh) {
-                    child.material.emissiveIntensity = 5.0; // Boosts the lava glow brightness
+                    // FORCE EMISSIVE: This makes the lava actually glow
+                    child.material.emissive = new THREE.Color(0xff2200);
+                    child.material.emissiveIntensity = 15; // Overdrive the brightness
+                    child.material.roughness = 0.3; // Make rock shiny
+                    child.material.metalness = 0.8; // Give it depth
                 }
             });
 
-            const orbitGroup = createOrbitGroup(50000, 0.0003);
-            orbitGroup.add(lavaPlanet);
+            scene.add(lavaPlanetGroup);
 
-            const planetMixer = new THREE.AnimationMixer(lavaPlanet);
-            gltf.animations.forEach((clip) => {
-                planetMixer.clipAction(clip).play();
-            });
-            mixers.push(planetMixer);
+            const mixer = new THREE.AnimationMixer(lavaPlanetGroup);
+            gltf.animations.forEach(clip => mixer.clipAction(clip).play());
+            mixers.push(mixer);
         });
 
-        // 2. LOAD ALIEN SWARM
+        // LOAD ALIENS
         loader.load('./human1.glb', (gltf) => {
             const model = gltf.scene;
-            const box = new THREE.Box3().setFromObject(model);
-            const size = box.getSize(new THREE.Vector3());
-            const scaleFactor = 90000 / Math.max(size.x, size.y, size.z);
+            const scale = 80000 / new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
 
-            for(let i = 0; i < 6; i++) {
-                const alienWrapper = new THREE.Group();
-                const clone = model.clone();
-                alienWrapper.add(clone);
-                alienWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            for(let i = 0; i < 5; i++) {
+                const alien = model.clone();
+                alien.scale.set(scale, scale, scale);
+                const wrapper = new THREE.Group();
+                wrapper.add(alien);
                 
-                const targetPlanet = planets[0]; // All orbit the lava planet
-                alienWrapper.userData = { 
-                    targetPlanet, 
-                    orbitAngle: Math.random() * Math.PI * 2, 
-                    orbitDist: 40000 + (Math.random() * 20000), 
-                    orbitSpeed: 0.001
+                // Orbit data
+                wrapper.userData = { angle: Math.random() * 6.2, dist: 60000 + (Math.random()*20000), speed: 0.002 };
+                scene.add(wrapper);
+                
+                const mixer = new THREE.AnimationMixer(alien);
+                if(gltf.animations[0]) mixer.clipAction(gltf.animations[0]).play();
+                mixers.push(mixer);
+                
+                wrapper.tick = () => {
+                    wrapper.userData.angle += wrapper.userData.speed;
+                    wrapper.position.set(Math.cos(wrapper.userData.angle)*wrapper.userData.dist, 0, Math.sin(wrapper.userData.angle)*wrapper.userData.dist);
+                    wrapper.lookAt(0,0,0);
+                    wrapper.rotateY(Math.PI);
                 };
-
-                const mixer = new THREE.AnimationMixer(clone);
-                if (gltf.animations.length > 0) {
-                    mixer.clipAction(gltf.animations[0]).play();
-                    mixers.push(mixer);
-                }
-
-                scene.add(alienWrapper);
-                aliens.push(alienWrapper);
             }
         });
 
@@ -163,28 +134,11 @@
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
             mixers.forEach(m => m.update(delta));
-
-            planets.forEach(p => {
-                p.userData.angle += p.userData.speed;
-                p.position.set(
-                    Math.cos(p.userData.angle) * p.userData.distance, 
-                    0, 
-                    Math.sin(p.userData.angle) * p.userData.distance
-                );
-                p.rotation.y += 0.001;
-            });
-
-            aliens.forEach(a => {
-                const p = a.userData.targetPlanet;
-                if(!p) return;
-                a.userData.orbitAngle += a.userData.orbitSpeed;
-                a.position.set(
-                    p.position.x + Math.cos(a.userData.orbitAngle) * a.userData.orbitDist,
-                    p.position.y + Math.sin(a.userData.orbitAngle * 2) * 3000, 
-                    p.position.z + Math.sin(a.userData.orbitAngle) * a.userData.orbitDist
-                );
-                a.lookAt(p.position);
-                a.rotateY(Math.PI); 
+            
+            if(lavaPlanetGroup) lavaPlanetGroup.rotation.y += 0.001;
+            
+            scene.children.forEach(child => {
+                if(child.tick) child.tick();
             });
 
             controls.update();
