@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Colossal Alien Swarm - Click to Zoom</title>
+    <title>Three.js Super Zoom - Locked Camera</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
-        #hint { 
-            position: absolute; top: 10px; left: 10px; color: white; 
-            font-family: sans-serif; pointer-events: none; text-shadow: 1px 1px 2px black;
+        #ui { 
+            position: absolute; top: 10px; left: 10px; color: yellow; 
+            font-family: 'Courier New', Courier, monospace; pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <div id="hint">Click a Giant Alien to Zoom In</div>
+    <div id="ui">CLICK ALIEN TO SUPER-ZOOM | CLICK SPACE TO RESET</div>
+    
     <script type="importmap">
         {
             "imports": {
@@ -30,32 +31,29 @@
         import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
+        // --- Core Scene ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 2000000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        camera.position.set(0, 20000, 40000);
-        controls.enableDamping = true;
+        camera.position.set(0, 30000, 60000);
 
-        // --- Lighting ---
-        scene.add(new THREE.AmbientLight(0xffffff, 10.0)); 
-        const light = new THREE.DirectionalLight(0xffffff, 5.0);
-        light.position.set(10000, 10000, 10000);
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 8.0)); 
+        const light = new THREE.DirectionalLight(0xffffff, 4.0);
+        light.position.set(20000, 20000, 20000);
         scene.add(light);
 
-        // --- Starfield ---
+        // Starfield
         const starCoords = [];
-        for(let i = 0; i < 30000; i++) {
-            starCoords.push((Math.random() - 0.5) * 500000, (Math.random() - 0.5) * 500000, (Math.random() - 0.5) * 500000);
-        }
+        for(let i = 0; i < 20000; i++) starCoords.push((Math.random()-0.5)*600000, (Math.random()-0.5)*600000, (Math.random()-0.5)*600000);
         const starGeo = new THREE.BufferGeometry();
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 40, color: 0xffffff })));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 100, color: 0xffffff })));
 
         // --- Planets ---
         const planets = [];
@@ -63,22 +61,18 @@
             const group = new THREE.Group();
             const planet = new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 64), new THREE.MeshStandardMaterial({ color }));
             group.add(planet);
-            group.userData = { distance, speed, angle: Math.random() * 6.28, radius };
+            group.userData = { distance, speed, angle: Math.random() * 6.28 };
             scene.add(group);
             planets.push(group);
         };
-        createPlanet(800, 0x2244ff, 15000, 0.001); 
-        createPlanet(600, 0xff5500, 25000, 0.0008); 
-        createPlanet(1000, 0x88cc88, 35000, 0.0005); 
+        createPlanet(1000, 0x2244ff, 20000, 0.001); 
+        createPlanet(800, 0xff5500, 35000, 0.0008); 
 
-        // --- Swarm Logic ---
+        // --- Alien Setup ---
         let aliens = [];
         let mixers = [];
         const clock = new THREE.Clock();
         const loader = new GLTFLoader();
-
-        // Target for camera zoom
-        let targetAlien = null;
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
@@ -89,7 +83,7 @@
             const size = box.getSize(new THREE.Vector3());
             originalModel.position.set(-center.x, -center.y, -center.z);
 
-            const scaleFactor = 80000 / Math.max(size.x, size.y, size.z); 
+            const scaleFactor = 100000 / Math.max(size.x, size.y, size.z); 
 
             for(let i = 0; i < 4; i++) {
                 const alienWrapper = new THREE.Group();
@@ -101,8 +95,8 @@
                 alienWrapper.userData = { 
                     targetPlanet, 
                     orbitAngle: Math.random() * 6.28, 
-                    orbitDist: 35000 + (Math.random() * 5000), 
-                    orbitSpeed: 0.0015,
+                    orbitDist: 40000 + (Math.random() * 10000), 
+                    orbitSpeed: 0.001,
                 };
 
                 const mixer = new THREE.AnimationMixer(alienClone);
@@ -116,8 +110,8 @@
             }
         });
 
-        // --- Click Interaction ---
-        window.addEventListener('click', (event) => {
+        // --- CLICK TO SUPER ZOOM ---
+        window.addEventListener('mousedown', (event) => {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -125,14 +119,28 @@
             const intersects = raycaster.intersectObjects(aliens, true);
 
             if (intersects.length > 0) {
-                // Find the top-level wrapper group
-                let obj = intersects[0].object;
-                while (obj.parent && !aliens.includes(obj)) {
-                    obj = obj.parent;
+                // Find the top-level alien group
+                let target = intersects[0].object;
+                while (target.parent && !aliens.includes(target)) {
+                    target = target.parent;
                 }
-                targetAlien = obj;
-            } else {
-                targetAlien = null; // Click space to reset target
+
+                // SUPER ZOOM LOGIC: Attach camera to alien
+                target.add(camera); 
+                // Close-up position relative to alien center
+                camera.position.set(0, 0, 1.5); 
+                controls.target.set(0, 0, 0);
+                controls.enabled = false; // Disable controls so it stays locked
+            }
+        });
+
+        // RESET: Press 'Space' to return to space view
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                scene.add(camera); // Re-attach to scene
+                camera.position.set(0, 30000, 60000);
+                controls.target.set(0, 0, 0);
+                controls.enabled = true;
             }
         });
 
@@ -158,17 +166,6 @@
                 a.lookAt(p.position);
                 a.rotateY(Math.PI); 
             });
-
-            // Camera Follow Logic
-            if (targetAlien) {
-                const targetPos = new THREE.Vector3();
-                targetAlien.getWorldPosition(targetPos);
-                
-                // Position camera slightly offset from alien
-                const offset = new THREE.Vector3(0, 15000, 30000); 
-                camera.position.lerp(targetPos.clone().add(offset), 0.05);
-                controls.target.lerp(targetPos, 0.05);
-            }
 
             controls.update();
             renderer.render(scene, camera);
