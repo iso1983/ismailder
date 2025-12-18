@@ -25,6 +25,7 @@
         import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
+        // --- Scene Setup ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 50000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -34,12 +35,20 @@
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        camera.position.set(0, 1000, 3000);
+        camera.position.set(0, 1500, 3500);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 3.0)); 
-        const light = new THREE.DirectionalLight(0xffffff, 2);
+        // EXTRA BRIGHT LIGHTING
+        scene.add(new THREE.AmbientLight(0xffffff, 3.5)); 
+        const light = new THREE.DirectionalLight(0xffffff, 2.5);
         light.position.set(1000, 1000, 1000);
         scene.add(light);
+
+        // Starfield
+        const starCoords = [];
+        for(let i = 0; i < 10000; i++) starCoords.push((Math.random() - 0.5) * 20000, (Math.random() - 0.5) * 20000, (Math.random() - 0.5) * 20000);
+        const starGeo = new THREE.BufferGeometry();
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 2, color: 0xffffff })));
 
         // Planets
         const planets = [];
@@ -62,13 +71,15 @@
         const loader = new GLTFLoader();
 
         loader.load('./human1.glb', (gltf) => {
-            // Scale normalization
+            console.log("Model loaded successfully!");
+            
+            // Auto-scale logic
             const box = new THREE.Box3().setFromObject(gltf.scene);
             const size = box.getSize(new THREE.Vector3());
-            const scaleFactor = 300 / Math.max(size.x, size.y, size.z);
+            const scaleFactor = 350 / Math.max(size.x, size.y, size.z);
 
             for(let i = 0; i < 8; i++) {
-                // We use gltf.scene directly for the first one, then clone for others
+                // IMPORTANT: We use the scene directly for the first, then clone
                 const alien = i === 0 ? gltf.scene : gltf.scene.clone();
                 
                 alien.scale.set(scaleFactor, scaleFactor, scaleFactor);
@@ -77,29 +88,33 @@
                 alien.userData = { 
                     targetPlanet, 
                     orbitAngle: Math.random() * 6.28, 
-                    orbitDist: targetPlanet.userData.radius + 450,
+                    orbitDist: targetPlanet.userData.radius + 500,
                     orbitSpeed: 0.005 + Math.random() * 0.005,
-                    yOffset: (Math.random() - 0.5) * 500
+                    yOffset: (Math.random() - 0.5) * 600
                 };
 
                 // Setup Animation
-                const mixer = new THREE.AnimationMixer(alien);
-                if (gltf.animations.length > 0) {
+                if (gltf.animations && gltf.animations.length > 0) {
+                    const mixer = new THREE.AnimationMixer(alien);
+                    // Force playback of the first animation (Idle)
                     const action = mixer.clipAction(gltf.animations[0]);
                     action.play();
+                    mixers.push(mixer);
                 }
-                mixers.push(mixer);
 
                 scene.add(alien);
                 aliens.push(alien);
             }
-        });
+        }, undefined, (e) => console.error("Loader Error:", e));
 
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
 
-            for (const mixer of mixers) mixer.update(delta);
+            // Explicitly update all animation mixers
+            for (let j = 0; j < mixers.length; j++) {
+                mixers[j].update(delta);
+            }
 
             planets.forEach(p => {
                 p.userData.angle += p.userData.speed;
