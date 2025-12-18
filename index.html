@@ -54,22 +54,36 @@
         let cosmicGiant = null;
         const loader = new GLTFLoader();
 
-        loader.load('./giant.glb', (gltf) => {
-            cosmicGiant = gltf.scene;
-            
-            // Adjust scale (You may need to change 300 based on the model's actual size)
-            cosmicGiant.scale.set(300, 300, 300); 
-            cosmicGiant.position.set(0, 0, 0);
+    // --- GLTF Model Loader with Face Overlay ---
+loader.load('./giant.glb', (gltf) => {
+    cosmicGiant = gltf.scene;
+    cosmicGiant.scale.set(300, 300, 300); // Adjust based on your model size
+    cosmicGiant.position.set(0, 0, 0);
 
-            // We do NOT use .traverse to override materials here
-            // This allows the model to show its original textures
-            
-            scene.add(cosmicGiant);
-        }, (xhr) => {
-            console.log((xhr.loaded / xhr.total * 100) + '% loaded'); // Loading progress
-        }, (error) => {
-            console.error('An error happened while loading:', error);
-        });
+    // --- Create the Face Overlay ---
+    const texLoader = new THREE.TextureLoader();
+    const faceTexture = texLoader.load('./myface.png');
+    
+    // Create a small plane for your photo
+    const faceGeometry = new THREE.PlaneGeometry(15, 15); // Adjust size to fit the head
+    const faceMaterial = new THREE.MeshBasicMaterial({ 
+        map: faceTexture, 
+        transparent: true, // Allows your face photo to have rounded edges if it's a PNG
+        side: THREE.DoubleSide 
+    });
+    const faceOverlay = new THREE.Mesh(faceGeometry, faceMaterial);
+
+    // Position the photo on the head
+    // IMPORTANT: You will need to change these numbers to match your model's face location
+    faceOverlay.position.set(0, 250, 20); 
+    
+    // Add the face TO the giant so it moves with him
+    cosmicGiant.add(faceOverlay); 
+
+    scene.add(cosmicGiant);
+}, undefined, (error) => {
+    console.error('Error loading:', error);
+});
 
         // --- Starfield ---
         const starCoords = [];
