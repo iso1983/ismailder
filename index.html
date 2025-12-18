@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Cosmic Alien Swarm</title>
+    <title>Three.js Cosmic Giant Alien</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
@@ -26,7 +26,7 @@
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 100000);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 100000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
@@ -34,20 +34,22 @@
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        camera.position.set(0, 3000, 8000);
+        camera.position.set(0, 5000, 12000);
 
-        // --- BRIGHT LIGHTING ---
-        scene.add(new THREE.AmbientLight(0xffffff, 5.0)); 
-        const light = new THREE.DirectionalLight(0xffffff, 3.0);
-        light.position.set(2000, 2000, 2000);
+        // --- Lighting ---
+        scene.add(new THREE.AmbientLight(0xffffff, 6.0)); 
+        const light = new THREE.DirectionalLight(0xffffff, 4.0);
+        light.position.set(5000, 5000, 5000);
         scene.add(light);
 
-        // --- RESTORED STARFIELD ---
+        // --- Starfield ---
         const starCoords = [];
-        for(let i = 0; i < 20000; i++) starCoords.push((Math.random() - 0.5) * 60000, (Math.random() - 0.5) * 60000, (Math.random() - 0.5) * 60000);
+        for(let i = 0; i < 20000; i++) {
+            starCoords.push((Math.random() - 0.5) * 80000, (Math.random() - 0.5) * 80000, (Math.random() - 0.5) * 80000);
+        }
         const starGeo = new THREE.BufferGeometry();
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 5, color: 0xffffff })));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 8, color: 0xffffff })));
 
         // --- Planets ---
         const planets = [];
@@ -59,11 +61,11 @@
             scene.add(group);
             planets.push(group);
         };
-        createPlanet(250, 0x2244ff, 2500, 0.002); 
-        createPlanet(180, 0xff5500, 4500, 0.0015); 
-        createPlanet(300, 0x88cc88, 6500, 0.001); 
+        createPlanet(500, 0x2244ff, 4500, 0.001); 
+        createPlanet(400, 0xff5500, 7500, 0.0008); 
+        createPlanet(600, 0x88cc88, 11000, 0.0005); 
 
-        // --- Alien Swarm ---
+        // --- Alien Setup ---
         let aliens = [];
         let mixers = [];
         const clock = new THREE.Clock();
@@ -72,17 +74,20 @@
         loader.load('./human1.glb', (gltf) => {
             const originalModel = gltf.scene;
             
-            // 1. CENTER THE PIVOT POINT: This fixes the "flying way below" issue
+            // 1. MEASURE & RE-CENTER (Fixes "flying way below")
             const box = new THREE.Box3().setFromObject(originalModel);
             const center = box.getCenter(new THREE.Vector3());
-            originalModel.position.sub(center); // Centers the model on 0,0,0
-
-            // 2. MASSIVE SCALE: Increased significantly
             const size = box.getSize(new THREE.Vector3());
-            const scaleFactor = 2500 / Math.max(size.x, size.y, size.z); 
+            
+            // Move the model so its vertical center is at 0
+            originalModel.position.set(-center.x, -center.y, -center.z);
+
+            // 2. MASSIVE SCALE (Fixes "tiny")
+            // Scaling to be 3000 units tall - much bigger than planets
+            const scaleFactor = 3000 / Math.max(size.x, size.y, size.z); 
 
             for(let i = 0; i < 6; i++) {
-                // Wrap centered model in a group so rotation and translation don't conflict
+                // Wrapper group handles the orbit, internal model handles centering
                 const alienGroup = new THREE.Group();
                 const alienClone = i === 0 ? originalModel : originalModel.clone();
                 alienGroup.add(alienClone);
@@ -93,9 +98,9 @@
                 alienGroup.userData = { 
                     targetPlanet, 
                     orbitAngle: Math.random() * 6.28, 
-                    orbitDist: targetPlanet.userData.radius + 2000,
-                    orbitSpeed: 0.008 + Math.random() * 0.005,
-                    yOffset: (Math.random() - 0.5) * 500 // Keeps them closer to the center line
+                    orbitDist: targetPlanet.userData.radius + 2500,
+                    orbitSpeed: 0.003 + Math.random() * 0.002, // SLOWED DOWN SPEED
+                    yOffset: (Math.random() - 0.5) * 500
                 };
 
                 // Link Animation
@@ -115,7 +120,7 @@
             const delta = clock.getDelta();
 
             // Run animations
-            mixers.forEach(m => m.update(delta));
+            for (const mixer of mixers) mixer.update(delta);
 
             // Move Planets
             planets.forEach(p => {
@@ -128,7 +133,7 @@
                 const p = a.userData.targetPlanet;
                 a.userData.orbitAngle += a.userData.orbitSpeed;
                 
-                // Flight logic: Follow the planet exactly on its horizontal plane
+                // Flight logic: Locks them to the planet's horizontal plane
                 a.position.set(
                     p.position.x + Math.cos(a.userData.orbitAngle) * a.userData.orbitDist,
                     p.position.y + a.userData.yOffset, 
