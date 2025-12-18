@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Cosmic Giant Alien</title>
+    <title>Three.js Colossal Alien Swarm</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
@@ -26,7 +26,8 @@
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 100000);
+        // Camera far plane increased to 500,000 to see the massive objects
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 500000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
@@ -34,22 +35,22 @@
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        camera.position.set(0, 5000, 12000);
+        camera.position.set(0, 15000, 30000); // Backed out significantly
 
-        // --- Lighting ---
-        scene.add(new THREE.AmbientLight(0xffffff, 6.0)); 
-        const light = new THREE.DirectionalLight(0xffffff, 4.0);
-        light.position.set(5000, 5000, 5000);
+        // --- Extreme Lighting ---
+        scene.add(new THREE.AmbientLight(0xffffff, 8.0)); 
+        const light = new THREE.DirectionalLight(0xffffff, 5.0);
+        light.position.set(10000, 10000, 10000);
         scene.add(light);
 
-        // --- Starfield ---
+        // --- Massive Starfield ---
         const starCoords = [];
-        for(let i = 0; i < 20000; i++) {
-            starCoords.push((Math.random() - 0.5) * 80000, (Math.random() - 0.5) * 80000, (Math.random() - 0.5) * 80000);
+        for(let i = 0; i < 25000; i++) {
+            starCoords.push((Math.random() - 0.5) * 200000, (Math.random() - 0.5) * 200000, (Math.random() - 0.5) * 200000);
         }
         const starGeo = new THREE.BufferGeometry();
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 8, color: 0xffffff })));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 15, color: 0xffffff })));
 
         // --- Planets ---
         const planets = [];
@@ -61,11 +62,12 @@
             scene.add(group);
             planets.push(group);
         };
-        createPlanet(500, 0x2244ff, 4500, 0.001); 
-        createPlanet(400, 0xff5500, 7500, 0.0008); 
-        createPlanet(600, 0x88cc88, 11000, 0.0005); 
+        // Planets are kept at their original scale for contrast
+        createPlanet(800, 0x2244ff, 8000, 0.001); 
+        createPlanet(600, 0xff5500, 12000, 0.0008); 
+        createPlanet(1000, 0x88cc88, 18000, 0.0005); 
 
-        // --- Alien Setup ---
+        // --- The Colossal Alien ---
         let aliens = [];
         let mixers = [];
         const clock = new THREE.Clock();
@@ -74,44 +76,40 @@
         loader.load('./human1.glb', (gltf) => {
             const originalModel = gltf.scene;
             
-            // 1. MEASURE & RE-CENTER (Fixes "flying way below")
+            // 1. PIVOT FIX: Calculate center and move geometry so it orbits correctly
             const box = new THREE.Box3().setFromObject(originalModel);
             const center = box.getCenter(new THREE.Vector3());
             const size = box.getSize(new THREE.Vector3());
-            
-            // Move the model so its vertical center is at 0
             originalModel.position.set(-center.x, -center.y, -center.z);
 
-            // 2. MASSIVE SCALE (Fixes "tiny")
-            // Scaling to be 3000 units tall - much bigger than planets
-            const scaleFactor = 3000 / Math.max(size.x, size.y, size.z); 
+            // 2. COLOSSAL SCALE: Scaling to be 30,000 units tall
+            const scaleFactor = 30000 / Math.max(size.x, size.y, size.z); 
 
-            for(let i = 0; i < 6; i++) {
-                // Wrapper group handles the orbit, internal model handles centering
-                const alienGroup = new THREE.Group();
+            for(let i = 0; i < 5; i++) {
+                const alienWrapper = new THREE.Group();
                 const alienClone = i === 0 ? originalModel : originalModel.clone();
-                alienGroup.add(alienClone);
+                alienWrapper.add(alienClone);
                 
-                alienGroup.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                alienWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
                 const targetPlanet = planets[i % planets.length];
                 
-                alienGroup.userData = { 
+                alienWrapper.userData = { 
                     targetPlanet, 
                     orbitAngle: Math.random() * 6.28, 
-                    orbitDist: targetPlanet.userData.radius + 2500,
-                    orbitSpeed: 0.003 + Math.random() * 0.002, // SLOWED DOWN SPEED
-                    yOffset: (Math.random() - 0.5) * 500
+                    orbitDist: 15000 + (Math.random() * 5000), // Huge orbit distance
+                    orbitSpeed: 0.002, // Majestic, slow movement
+                    yOffset: (Math.random() - 0.5) * 2000
                 };
 
-                // Link Animation
+                // Animation Engine
                 const mixer = new THREE.AnimationMixer(alienClone);
                 if (gltf.animations.length > 0) {
                     mixer.clipAction(gltf.animations[0]).play();
                     mixers.push(mixer);
                 }
 
-                scene.add(alienGroup);
-                aliens.push(alienGroup);
+                scene.add(alienWrapper);
+                aliens.push(alienWrapper);
             }
         });
 
@@ -119,21 +117,18 @@
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
 
-            // Run animations
             for (const mixer of mixers) mixer.update(delta);
 
-            // Move Planets
             planets.forEach(p => {
                 p.userData.angle += p.userData.speed;
                 p.position.set(Math.cos(p.userData.angle)*p.userData.distance, 0, Math.sin(p.userData.angle)*p.userData.distance);
             });
 
-            // Move Aliens
             aliens.forEach(a => {
                 const p = a.userData.targetPlanet;
                 a.userData.orbitAngle += a.userData.orbitSpeed;
                 
-                // Flight logic: Locks them to the planet's horizontal plane
+                // Position centered on the planet's plane
                 a.position.set(
                     p.position.x + Math.cos(a.userData.orbitAngle) * a.userData.orbitDist,
                     p.position.y + a.userData.yOffset, 
