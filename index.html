@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Lava Swarm - Restored</title>
+    <title>Ultimate Lava Universe</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
@@ -14,7 +14,7 @@
         .profile-overlay {
             width: 100px; height: 100px; border-radius: 50%;
             border: 2px solid #ff4400; box-shadow: 0 0 20px #ff4400;
-            transition: 0.3s ease-in-out; object-fit: cover;
+            transition: 0.3s ease-in-out;
         }
         .profile-overlay:hover { transform: scale(1.1); box-shadow: 0 0 40px #ffaa00; }
     </style>
@@ -45,132 +45,71 @@
         
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.5; 
+        
+        // --- PRO RENDERING SETTINGS ---
+        renderer.toneMapping = THREE.ReinhardToneMapping; 
+        renderer.toneMappingExposure = 2.5; 
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        camera.position.set(0, 50000, 150000);
+        camera.position.set(0, 40000, 120000);
 
-        // --- Lighting ---
-        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-        const pointLight = new THREE.PointLight(0xff4400, 10, 500000);
-        scene.add(pointLight);
+        // --- Environment Map for reflections ---
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture;
 
-        // --- Massive Starfield ---
+        // --- LIGHTING ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.1); 
+        scene.add(ambient);
+        
+        const lavaLight = new THREE.PointLight(0xff4400, 50, 600000, 1);
+        scene.add(lavaLight);
+
+        // --- STARS ---
         const starGeo = new THREE.BufferGeometry();
         const starCoords = [];
-        for(let i = 0; i < 30000; i++) starCoords.push((Math.random()-0.5)*1000000, (Math.random()-0.5)*1000000, (Math.random()-0.5)*1000000);
+        for(let i = 0; i < 20000; i++) starCoords.push((Math.random()-0.5)*1000000, (Math.random()-0.5)*1000000, (Math.random()-0.5)*1000000);
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 100, color: 0xffffff })));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 150, color: 0xffffff })));
 
-        const planets = [];
         const mixers = [];
         const clock = new THREE.Clock();
         const loader = new GLTFLoader();
+        let lavaPlanetGroup;
 
-        // Helper: Create Orbiting Group
-        const createOrbitGroup = (distance, speed) => {
-            const group = new THREE.Group();
-            group.userData = { distance, speed, angle: Math.random() * 6.2 };
-            scene.add(group);
-            planets.push(group);
-            return group;
-        };
-
-        // 1. Restore Standard Planets
-        const bluePlanet = createOrbitGroup(40000, 0.001);
-        bluePlanet.add(new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 32), new THREE.MeshStandardMaterial({color: 0x2244ff})));
-
-        const greenPlanet = createOrbitGroup(70000, 0.0006);
-        greenPlanet.add(new THREE.Mesh(new THREE.SphereGeometry(4000, 32, 32), new THREE.MeshStandardMaterial({color: 0x88cc88})));
-
-        // 2. Load and Fix Lava Planet
+        // LOAD LAVA PLANET ONLY
         loader.load('./lavaplanet.glb', (gltf) => {
-            const lavaPlanet = gltf.scene;
-            lavaPlanet.scale.set(15000, 15000, 15000);
+            lavaPlanetGroup = gltf.scene;
+            lavaPlanetGroup.scale.set(15000, 15000, 15000);
             
-            lavaPlanet.traverse(child => {
+            lavaPlanetGroup.traverse(child => {
                 if (child.isMesh) {
-                    child.material.emissiveIntensity = 20; // High intensity for Sketchfab glow
-                    child.material.roughness = 0.2;
+                    child.material.emissive = new THREE.Color(0xff2200);
+                    child.material.emissiveIntensity = 15; 
+                    child.material.roughness = 0.3; 
+                    child.material.metalness = 0.8; 
                 }
             });
 
-            const lavaGroup = createOrbitGroup(100000, 0.0004);
-            lavaGroup.add(lavaPlanet);
+            scene.add(lavaPlanetGroup);
 
-            const mixer = new THREE.AnimationMixer(lavaPlanet);
+            const mixer = new THREE.AnimationMixer(lavaPlanetGroup);
             gltf.animations.forEach(clip => mixer.clipAction(clip).play());
             mixers.push(mixer);
-        });
-
-        // 3. Restore human1.glb Swarm
-        loader.load('./human1.glb', (gltf) => {
-            const humanModel = gltf.scene;
-            const box = new THREE.Box3().setFromObject(humanModel);
-            const size = box.getSize(new THREE.Vector3());
-            const scaleFactor = 100000 / Math.max(size.x, size.y, size.z);
-
-            for(let i = 0; i < 6; i++) {
-                const alienWrapper = new THREE.Group();
-                const clone = i === 0 ? humanModel : humanModel.clone();
-                alienWrapper.add(clone);
-                alienWrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                
-                // Assign each alien to a different planet
-                const target = planets[i % planets.length];
-                alienWrapper.userData = { 
-                    target, 
-                    orbitAngle: Math.random() * 6.2, 
-                    orbitDist: 25000 + (Math.random() * 15000), 
-                    orbitSpeed: 0.002 
-                };
-
-                const mixer = new THREE.AnimationMixer(clone);
-                if (gltf.animations.length > 0) {
-                    mixer.clipAction(gltf.animations[0]).play();
-                    mixers.push(mixer);
-                }
-
-                scene.add(alienWrapper);
-                alienWrapper.name = "alien";
-            }
         });
 
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
+            
+            // Update planet animations (lava flow)
             mixers.forEach(m => m.update(delta));
-
-            // Move Planets
-            planets.forEach(p => {
-                p.userData.angle += p.userData.speed;
-                p.position.set(
-                    Math.cos(p.userData.angle) * p.userData.distance, 
-                    0, 
-                    Math.sin(p.userData.angle) * p.userData.distance
-                );
-                p.rotation.y += 0.005;
-            });
-
-            // Move Aliens
-            scene.children.forEach(child => {
-                if(child.name === "alien") {
-                    const p = child.userData.target;
-                    child.userData.orbitAngle += child.userData.orbitSpeed;
-                    child.position.set(
-                        p.position.x + Math.cos(child.userData.orbitAngle) * child.userData.orbitDist,
-                        p.position.y + Math.sin(child.userData.orbitAngle * 2) * 5000, 
-                        p.position.z + Math.sin(child.userData.orbitAngle) * child.userData.orbitDist
-                    );
-                    child.lookAt(p.position);
-                    child.rotateY(Math.PI);
-                }
-            });
-
+            
+            // Slow rotation of the planet itself
+            if(lavaPlanetGroup) lavaPlanetGroup.rotation.y += 0.001;
+            
             controls.update();
             renderer.render(scene, camera);
         }
