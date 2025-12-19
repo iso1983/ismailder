@@ -7,79 +7,23 @@
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Roboto, sans-serif; }
         canvas { display: block; }
-
-        /* Fixed Image Overlay */
-        .profile-container {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 2000; cursor: pointer;
-        }
-        .profile-overlay {
-            width: 90px; height: 90px; border-radius: 50%;
-            border: 3px solid #ff4400; box-shadow: 0 0 20px #ff4400;
-            object-fit: cover;
-        }
-
-        /* Dashboard Containers */
-        .window {
-            position: absolute;
-            z-index: 1000;
-            color: white;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 68, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        h3 { margin: 0 0 10px 0; color: #ffaa00; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        
+        .profile-container { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2000; }
+        .profile-overlay { width: 90px; height: 90px; border-radius: 50%; border: 3px solid #ff4400; box-shadow: 0 0 20px #ff4400; object-fit: cover; }
+        .window { position: absolute; z-index: 1000; color: white; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 68, 0, 0.3); border-radius: 12px; padding: 15px; }
+        h3 { margin: 0 0 10px 0; color: #ffaa00; font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #333; }
         #btc-window { top: 20px; left: 20px; width: 250px; }
         #eth-window { top: 180px; left: 20px; width: 250px; }
-        #whale-window { bottom: 20px; left: 20px; width: 350px; max-height: 300px; overflow-y: auto; }
-
-        .price { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
-        .change { font-size: 14px; color: #00ff88; }
-        .data-row { display: flex; justify-content: space-between; font-size: 12px; margin-top: 8px; color: #ccc; }
-
-        .whale-item {
-            background: rgba(255, 68, 0, 0.05);
-            border-left: 3px solid #ff4400;
-            padding: 8px;
-            margin-bottom: 10px;
-            font-size: 13px;
-            line-height: 1.4;
-        }
+        #whale-window { bottom: 20px; left: 20px; width: 350px; }
+        .price { font-size: 28px; font-weight: bold; }
+        .whale-item { background: rgba(255, 68, 0, 0.05); border-left: 3px solid #ff4400; padding: 8px; margin-bottom: 10px; font-size: 13px; }
     </style>
 </head>
 <body>
 
-    <div class="profile-container">
-        <img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" class="profile-overlay">
-    </div>
-
-    <div id="btc-window" class="window">
-        <h3>Bitcoin Terminal</h3>
-        <div class="price">$96,420.00</div>
-        <div class="change">▲ 2.45% (24h)</div>
-        <div class="data-row"><span>Vol:</span> <span>$35.2B</span></div>
-        <div class="data-row"><span>Market Cap:</span> <span>$1.9T</span></div>
-    </div>
-
-    <div id="eth-window" class="window">
-        <h3>Ethereum Terminal</h3>
-        <div class="price">$3,512.45</div>
-        <div class="change">▲ 1.82% (24h)</div>
-        <div class="data-row"><span>Gas:</span> <span>12 Gwei</span></div>
-        <div class="data-row"><span>Staked:</span> <span>32.1M ETH</span></div>
-    </div>
-
-    <div id="whale-window" class="window">
-        <h3>Whale Watcher</h3>
-        <div class="whale-item">🚨 1,500 #BTC (144,630,000 USD) transferred from Unknown Wallet to #Binance</div>
-        <div class="whale-item">🐋 25,000 #ETH (87,811,250 USD) moved between Unknown Wallets</div>
-        <div class="whale-item">💰 50,000,000 #USDC minted at Tether Treasury</div>
-    </div>
+    <div class="profile-container"><img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" class="profile-overlay"></div>
+    <div id="btc-window" class="window"><h3>Bitcoin Terminal</h3><div class="price">$96,420.00</div></div>
+    <div id="eth-window" class="window"><h3>Ethereum Terminal</h3><div class="price">$3,512.45</div></div>
+    <div id="whale-window" class="window"><h3>Whale Watcher</h3><div class="whale-item">🚨 1,500 #BTC transferred to Binance</div></div>
 
     <script type="importmap">
         {
@@ -97,35 +41,35 @@
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
         const scene = new THREE.Scene();
-        
-        // Camera positioned at 180,000 Z for depth
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 100, 5000000);
         camera.position.set(0, 40000, 180000); 
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.toneMapping = THREE.ReinhardToneMapping; 
-        renderer.toneMappingExposure = 2.5; 
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMappingExposure = 2.5;
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.target.set(0, 0, 0); 
 
-        const pmremGenerator = new THREE.PMREMGenerator(renderer);
-        scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture;
+        // --- LIGHTING ---
+        // Increased Ambient light so models aren't pitch black
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8)); 
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.2)); 
-        const lavaLight = new THREE.PointLight(0xff4400, 60, 1000000, 1.5);
-        lavaLight.position.set(0, 0, 0);
+        // Specific white light to hit the Satellite from the front
+        const satelliteLight = new THREE.DirectionalLight(0xffffff, 5);
+        satelliteLight.position.set(120000, 50000, 100000); 
+        scene.add(satelliteLight);
+
+        // Planet Lava Glow
+        const lavaLight = new THREE.PointLight(0xff4400, 80, 1000000, 1.5);
         scene.add(lavaLight);
 
         // Starfield
+        const starGeo = new THREE.BufferGeometry();
         const starCoords = [];
         for(let i = 0; i < 30000; i++) starCoords.push((Math.random()-0.5)*3000000, (Math.random()-0.5)*3000000, (Math.random()-0.5)*3000000);
-        const starGeo = new THREE.BufferGeometry();
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
         scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 150, color: 0xffffff })));
 
@@ -136,54 +80,29 @@
         let lavaPlanet, alienModel, satelliteModel;
         let alienOrbitAngle = 0;
 
-        // 1. Load Lava Planet (Center)
         loader.load('./lavaplanet.glb', (gltf) => {
             lavaPlanet = gltf.scene;
             lavaPlanet.scale.set(18000, 18000, 18000);
-            lavaPlanet.position.set(0, 0, 0);
-            
-            lavaPlanet.traverse(child => {
-                if (child.isMesh) {
-                    child.material.emissive = new THREE.Color(0xff2200);
-                    child.material.emissiveIntensity = 15;
-                }
-            });
             scene.add(lavaPlanet);
             const mixer = new THREE.AnimationMixer(lavaPlanet);
             gltf.animations.forEach(clip => mixer.clipAction(clip).play());
             mixers.push(mixer);
         });
 
-        // 2. Load Alien (Orbiting Planet)
         loader.load('./alien.glb', (gltf) => {
             alienModel = gltf.scene;
             alienModel.scale.set(8000, 8000, 8000); 
             scene.add(alienModel);
             const mixer = new THREE.AnimationMixer(alienModel);
-            if (gltf.animations.length > 0) {
-                mixer.clipAction(gltf.animations[0]).play();
-                mixers.push(mixer);
-            }
+            if (gltf.animations.length > 0) { mixer.clipAction(gltf.animations[0]).play(); mixers.push(mixer); }
         });
 
-        // 3. Load Satellite (Positioned Right and Further Back)
         loader.load('./satellite.glb', (gltf) => {
             satelliteModel = gltf.scene;
-            // Adjusting scale to ensure it's visible but proportional
-            satelliteModel.scale.set(5000, 5000, 5000); 
-            
-            // Positioning: Far Right (100k), slightly up (20k), and further back (-50k from origin)
-            satelliteModel.position.set(100000, 20000, -50000);
-            satelliteModel.rotation.set(0.5, 0.8, 0); // Static tilt
-            
+            satelliteModel.scale.set(7000, 7000, 7000); 
+            // Positioned right and back per your request
+            satelliteModel.position.set(110000, 25000, -60000);
             scene.add(satelliteModel);
-            
-            // Check for animations in satellite
-            const mixer = new THREE.AnimationMixer(satelliteModel);
-            if (gltf.animations.length > 0) {
-                gltf.animations.forEach(clip => mixer.clipAction(clip).play());
-                mixers.push(mixer);
-            }
         });
 
         function animate() {
@@ -191,22 +110,17 @@
             const delta = clock.getDelta();
             mixers.forEach(m => m.update(delta));
             
-            if(lavaPlanet) {
-                lavaPlanet.rotation.y += 0.001;
+            if(lavaPlanet) lavaPlanet.rotation.y += 0.001;
 
-                if (alienModel) {
-                    alienOrbitAngle += 0.005;
-                    const radius = 45000;
-                    alienModel.position.x = Math.cos(alienOrbitAngle) * radius;
-                    alienModel.position.z = Math.sin(alienOrbitAngle) * radius;
-                    alienModel.lookAt(0, 0, 0);
-                }
+            if (alienModel) {
+                alienOrbitAngle += 0.005;
+                alienModel.position.x = Math.cos(alienOrbitAngle) * 45000;
+                alienModel.position.z = Math.sin(alienOrbitAngle) * 45000;
+                alienModel.lookAt(0, 0, 0);
             }
 
-            // Sub-animation for Satellite if it's not animated by the glb
             if (satelliteModel) {
-                satelliteModel.rotation.y += 0.002;
-                satelliteModel.position.y += Math.sin(Date.now() * 0.001) * 10; // Subtle drift
+                satelliteModel.rotation.y += 0.003;
             }
             
             controls.update();
