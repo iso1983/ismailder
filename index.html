@@ -98,8 +98,7 @@
 
         const scene = new THREE.Scene();
         
-        // --- CAMERA ADJUSTMENT ---
-        // Far plane extended and Z-position set further back (180,000)
+        // Camera positioned at 180,000 Z for depth
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 100, 5000000);
         camera.position.set(0, 40000, 180000); 
 
@@ -113,12 +112,12 @@
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.target.set(0, 0, 0); // Always stay locked on center
+        controls.target.set(0, 0, 0); 
 
         const pmremGenerator = new THREE.PMREMGenerator(renderer);
         scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.1)); 
+        scene.add(new THREE.AmbientLight(0xffffff, 0.2)); 
         const lavaLight = new THREE.PointLight(0xff4400, 60, 1000000, 1.5);
         lavaLight.position.set(0, 0, 0);
         scene.add(lavaLight);
@@ -134,21 +133,19 @@
         const clock = new THREE.Clock();
         const loader = new GLTFLoader();
         
-        let lavaPlanet, alienModel;
+        let lavaPlanet, alienModel, satelliteModel;
         let alienOrbitAngle = 0;
 
-        // Load Lava Planet at center
+        // 1. Load Lava Planet (Center)
         loader.load('./lavaplanet.glb', (gltf) => {
             lavaPlanet = gltf.scene;
             lavaPlanet.scale.set(18000, 18000, 18000);
-            lavaPlanet.position.set(0, 0, 0); // Centered
+            lavaPlanet.position.set(0, 0, 0);
             
             lavaPlanet.traverse(child => {
                 if (child.isMesh) {
                     child.material.emissive = new THREE.Color(0xff2200);
                     child.material.emissiveIntensity = 15;
-                    child.material.roughness = 0.3;
-                    child.material.metalness = 0.8;
                 }
             });
             scene.add(lavaPlanet);
@@ -157,7 +154,7 @@
             mixers.push(mixer);
         });
 
-        // Load Alien orbiting center
+        // 2. Load Alien (Orbiting Planet)
         loader.load('./alien.glb', (gltf) => {
             alienModel = gltf.scene;
             alienModel.scale.set(8000, 8000, 8000); 
@@ -169,24 +166,47 @@
             }
         });
 
+        // 3. Load Satellite (Positioned Right and Further Back)
+        loader.load('./satellite.glb', (gltf) => {
+            satelliteModel = gltf.scene;
+            // Adjusting scale to ensure it's visible but proportional
+            satelliteModel.scale.set(5000, 5000, 5000); 
+            
+            // Positioning: Far Right (100k), slightly up (20k), and further back (-50k from origin)
+            satelliteModel.position.set(100000, 20000, -50000);
+            satelliteModel.rotation.set(0.5, 0.8, 0); // Static tilt
+            
+            scene.add(satelliteModel);
+            
+            // Check for animations in satellite
+            const mixer = new THREE.AnimationMixer(satelliteModel);
+            if (gltf.animations.length > 0) {
+                gltf.animations.forEach(clip => mixer.clipAction(clip).play());
+                mixers.push(mixer);
+            }
+        });
+
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
             mixers.forEach(m => m.update(delta));
             
             if(lavaPlanet) {
-                // Rotation only, no translation
                 lavaPlanet.rotation.y += 0.001;
 
                 if (alienModel) {
-                    // Orbiting the centered planet
                     alienOrbitAngle += 0.005;
                     const radius = 45000;
                     alienModel.position.x = Math.cos(alienOrbitAngle) * radius;
                     alienModel.position.z = Math.sin(alienOrbitAngle) * radius;
-                    alienModel.position.y = Math.sin(alienOrbitAngle * 0.5) * 5000;
                     alienModel.lookAt(0, 0, 0);
                 }
+            }
+
+            // Sub-animation for Satellite if it's not animated by the glb
+            if (satelliteModel) {
+                satelliteModel.rotation.y += 0.002;
+                satelliteModel.position.y += Math.sin(Date.now() * 0.001) * 10; // Subtle drift
             }
             
             controls.update();
