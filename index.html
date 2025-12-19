@@ -96,11 +96,14 @@
         import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
-        // --- SCENE SETUP ---
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 10, 3000000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
         
+        // --- CAMERA ADJUSTMENT ---
+        // Far plane extended and Z-position set further back (180,000)
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 100, 5000000);
+        camera.position.set(0, 40000, 180000); 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.toneMapping = THREE.ReinhardToneMapping; 
@@ -108,32 +111,25 @@
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
-        // --- CAMERA SETTINGS (Centered) ---
-        // Positioned back and slightly up to frame the planet perfectly
-        camera.position.set(0, 25000, 90000);
-
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.autoRotate = false; // Set to true if you want the camera to spin around the planet
+        controls.target.set(0, 0, 0); // Always stay locked on center
 
-        // --- ENVIRONMENT ---
         const pmremGenerator = new THREE.PMREMGenerator(renderer);
         scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture;
-        scene.add(new THREE.AmbientLight(0xffffff, 0.1)); 
 
-        // Lava glow light positioned at origin
+        scene.add(new THREE.AmbientLight(0xffffff, 0.1)); 
         const lavaLight = new THREE.PointLight(0xff4400, 60, 1000000, 1.5);
-        lavaLight.position.set(0,0,0);
+        lavaLight.position.set(0, 0, 0);
         scene.add(lavaLight);
 
         // Starfield
         const starCoords = [];
-        for(let i = 0; i < 30000; i++) starCoords.push((Math.random()-0.5)*2000000, (Math.random()-0.5)*2000000, (Math.random()-0.5)*2000000);
+        for(let i = 0; i < 30000; i++) starCoords.push((Math.random()-0.5)*3000000, (Math.random()-0.5)*3000000, (Math.random()-0.5)*3000000);
         const starGeo = new THREE.BufferGeometry();
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
         scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 150, color: 0xffffff })));
 
-        // --- MODELS ---
         const mixers = [];
         const clock = new THREE.Clock();
         const loader = new GLTFLoader();
@@ -141,14 +137,12 @@
         let lavaPlanet, alienModel;
         let alienOrbitAngle = 0;
 
-        // Load Lava Planet
+        // Load Lava Planet at center
         loader.load('./lavaplanet.glb', (gltf) => {
             lavaPlanet = gltf.scene;
             lavaPlanet.scale.set(18000, 18000, 18000);
+            lavaPlanet.position.set(0, 0, 0); // Centered
             
-            // Center the planet at origin
-            lavaPlanet.position.set(0, 0, 0);
-
             lavaPlanet.traverse(child => {
                 if (child.isMesh) {
                     child.material.emissive = new THREE.Color(0xff2200);
@@ -158,18 +152,16 @@
                 }
             });
             scene.add(lavaPlanet);
-            
             const mixer = new THREE.AnimationMixer(lavaPlanet);
             gltf.animations.forEach(clip => mixer.clipAction(clip).play());
             mixers.push(mixer);
         });
 
-        // Load Alien
+        // Load Alien orbiting center
         loader.load('./alien.glb', (gltf) => {
             alienModel = gltf.scene;
             alienModel.scale.set(8000, 8000, 8000); 
             scene.add(alienModel);
-            
             const mixer = new THREE.AnimationMixer(alienModel);
             if (gltf.animations.length > 0) {
                 mixer.clipAction(gltf.animations[0]).play();
@@ -177,38 +169,31 @@
             }
         });
 
-        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
-            
-            // Update animations
             mixers.forEach(m => m.update(delta));
             
             if(lavaPlanet) {
-                // Planet stays in middle but rotates
+                // Rotation only, no translation
                 lavaPlanet.rotation.y += 0.001;
 
                 if (alienModel) {
-                    // Alien orbits the centered planet
+                    // Orbiting the centered planet
                     alienOrbitAngle += 0.005;
-                    const orbitRadius = 45000;
-                    
-                    alienModel.position.x = Math.cos(alienOrbitAngle) * orbitRadius;
-                    alienModel.position.z = Math.sin(alienOrbitAngle) * orbitRadius;
-                    alienModel.position.y = Math.sin(alienOrbitAngle * 0.5) * 8000; // Slight vertical bobbing
-                    
-                    // Alien faces the planet at the center
+                    const radius = 45000;
+                    alienModel.position.x = Math.cos(alienOrbitAngle) * radius;
+                    alienModel.position.z = Math.sin(alienOrbitAngle) * radius;
+                    alienModel.position.y = Math.sin(alienOrbitAngle * 0.5) * 5000;
                     alienModel.lookAt(0, 0, 0);
                 }
             }
-
+            
             controls.update();
             renderer.render(scene, camera);
         }
         animate();
 
-        // Handle Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
