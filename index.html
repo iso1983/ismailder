@@ -23,7 +23,7 @@
     <div class="profile-container"><img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" class="profile-overlay"></div>
     <div id="btc-window" class="window"><h3>Bitcoin Terminal</h3><div class="price">$96,420.00</div></div>
     <div id="eth-window" class="window"><h3>Ethereum Terminal</h3><div class="price">$3,512.45</div></div>
-    <div id="whale-window" class="window"><h3>Whale Watcher</h3><div class="whale-item">🚨 1,500 #BTC transferred to Binance</div></div>
+    <div id="whale-window" class="window"><h3>Whale Watcher</h3><div class="whale-item">🚨 1,500 #BTC moved to Binance</div></div>
 
     <script type="importmap">
         {
@@ -47,24 +47,26 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.toneMapping = THREE.ReinhardToneMapping;
-        renderer.toneMappingExposure = 2.5;
+        renderer.toneMappingExposure = 2.0;
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
-        // --- LIGHTING ---
-        // Increased Ambient light so models aren't pitch black
-        scene.add(new THREE.AmbientLight(0xffffff, 0.8)); 
+        // --- FIXED LIGHTING ---
+        // 1. Low ambient light keeps the space dark
+        scene.add(new THREE.AmbientLight(0xffffff, 0.15)); 
 
-        // Specific white light to hit the Satellite from the front
-        const satelliteLight = new THREE.DirectionalLight(0xffffff, 5);
-        satelliteLight.position.set(120000, 50000, 100000); 
-        scene.add(satelliteLight);
-
-        // Planet Lava Glow
-        const lavaLight = new THREE.PointLight(0xff4400, 80, 1000000, 1.5);
+        // 2. Planet internal glow
+        const lavaLight = new THREE.PointLight(0xff4400, 50, 1000000, 1.5);
         scene.add(lavaLight);
+
+        // 3. Bright white spot light specifically for the satellite area
+        const satSpot = new THREE.SpotLight(0xffffff, 500);
+        satSpot.position.set(150000, 80000, 50000);
+        satSpot.target.position.set(110000, 25000, -60000);
+        scene.add(satSpot);
+        scene.add(satSpot.target);
 
         // Starfield
         const starGeo = new THREE.BufferGeometry();
@@ -83,6 +85,12 @@
         loader.load('./lavaplanet.glb', (gltf) => {
             lavaPlanet = gltf.scene;
             lavaPlanet.scale.set(18000, 18000, 18000);
+            lavaPlanet.traverse(child => {
+                if (child.isMesh) {
+                    child.material.emissive = new THREE.Color(0xff2200);
+                    child.material.emissiveIntensity = 25; // High intensity for lava pop
+                }
+            });
             scene.add(lavaPlanet);
             const mixer = new THREE.AnimationMixer(lavaPlanet);
             gltf.animations.forEach(clip => mixer.clipAction(clip).play());
@@ -100,7 +108,6 @@
         loader.load('./satellite.glb', (gltf) => {
             satelliteModel = gltf.scene;
             satelliteModel.scale.set(7000, 7000, 7000); 
-            // Positioned right and back per your request
             satelliteModel.position.set(110000, 25000, -60000);
             scene.add(satelliteModel);
         });
@@ -119,9 +126,7 @@
                 alienModel.lookAt(0, 0, 0);
             }
 
-            if (satelliteModel) {
-                satelliteModel.rotation.y += 0.003;
-            }
+            if (satelliteModel) satelliteModel.rotation.y += 0.003;
             
             controls.update();
             renderer.render(scene, camera);
