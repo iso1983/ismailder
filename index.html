@@ -39,7 +39,7 @@
 
         const scene = new THREE.Scene();
         
-        // --- RESOLUTION FIX 1: Narrower clipping planes ---
+        // --- High Resolution Fix: Narrower clipping planes ---
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 500, 2000000);
         camera.position.set(0, 40000, 180000);
         camera.layers.enable(0);
@@ -47,11 +47,10 @@
 
         const renderer = new THREE.WebGLRenderer({ 
             antialias: true, 
-            logarithmicDepthBuffer: false, // Turned off to prevent flickering at high distances
+            logarithmicDepthBuffer: false,
             powerPreference: "high-performance"
         });
         
-        // --- RESOLUTION FIX 2: Set Pixel Ratio for crispness ---
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.toneMapping = THREE.ReinhardToneMapping;
@@ -74,14 +73,6 @@
         satLight.layers.set(1); 
         scene.add(satLight);
 
-        // --- RED LASER ---
-        const laserGeo = new THREE.CylinderGeometry(500, 500, 1, 8);
-        laserGeo.rotateX(Math.PI / 2); 
-        const laserMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0 });
-        const laser = new THREE.Mesh(laserGeo, laserMat);
-        laser.layers.set(1);
-        scene.add(laser);
-
         // Starfield
         const starGeo = new THREE.BufferGeometry();
         const starCoords = [];
@@ -95,7 +86,6 @@
         
         let lavaPlanet, alienModel, satelliteModel;
         let alienOrbitAngle = 0;
-        let laserTimer = 0;
 
         loader.load('./lavaplanet.glb', (gltf) => {
             lavaPlanet = gltf.scene;
@@ -146,17 +136,6 @@
 
             if (satelliteModel) {
                 satelliteModel.rotation.y += 0.003;
-                laserTimer += delta;
-                if (laserTimer >= 3) laserTimer = 0;
-                if (laserTimer < 0.3) { 
-                    laser.position.copy(satelliteModel.position);
-                    laser.quaternion.copy(satelliteModel.quaternion);
-                    laser.translateZ(5000); 
-                    laser.scale.z = 200000; 
-                    laser.material.opacity = 1.0 - (laserTimer * 3);
-                } else {
-                    laser.material.opacity = 0;
-                }
             }
             
             controls.update();
