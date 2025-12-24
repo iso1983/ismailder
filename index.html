@@ -27,40 +27,41 @@
             display: block;
         }
 
-        /* LASER POSITION - FIXED ORIGIN LOCK */
+        /* EYE GLOW POINTS */
+        .eye-glow {
+            position: absolute;
+            top: 42%;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            z-index: 2002;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000, 0 0 30px #ff0000;
+            transform: translate(-50%, -50%);
+        }
+        .eye-glow.left { left: 32%; }
+        .eye-glow.right { right: 29.5%; }
+
+        /* LASER BEAMS - Firefox Fix */
         .laser {
             position: absolute;
             top: 42%; 
             width: 3px;
-            /* Firefox Fix: Use clip-path instead of translateY to prevent coordinate jumping */
             height: 100vh; 
             background: #ff0000;
             box-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
             z-index: 2001;
             opacity: 0;
             pointer-events: none;
-            /* Start fully clipped (hidden) */
             clip-path: inset(100% 0 0 0); 
             transform: translateY(-100%);
         }
+        .laser.left { left: 32%; transform: translate(-50%, -100%); }  
+        .laser.right { right: 29.5%; transform: translate(50%, -100%); } 
 
-        .laser.left { left: 32%; }  
-        .laser.right { right: 29%; } 
-
-        .laser::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 10px;
-            height: 10px;
-            background: white;
-            border-radius: 50%;
-            box-shadow: 0 0 15px 5px #ff0000;
-        }
-
-        /* LASERING STATE - Synchronized by JS class */
+        .profile-container.lasering .eye-glow { opacity: 1; }
         .profile-container.lasering .laser {
             opacity: 1;
             animation: laser-reveal 0.1s infinite alternate;
@@ -81,6 +82,8 @@
 <body>
 
     <div class="profile-container" id="profile">
+        <div class="eye-glow left"></div>
+        <div class="eye-glow right"></div>
         <div class="laser left"></div>
         <div class="laser right"></div>
         <img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" class="profile-overlay">
@@ -109,7 +112,6 @@
         const profile = document.getElementById('profile');
         const laughSound = document.getElementById('laughSound');
 
-        // Play sound and keep laser active until sound ends
         profile.addEventListener('mouseenter', () => {
             if (laughSound.paused) {
                 profile.classList.add('lasering');
@@ -118,7 +120,6 @@
             }
         });
 
-        // Sync laser shutoff with audio end
         laughSound.onended = () => {
             profile.classList.remove('lasering');
         };
@@ -141,6 +142,16 @@
         controls.enableDamping = true;
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.15));
+
+        const lavaLight = new THREE.PointLight(0xff4400, 50, 1000000, 1.2);
+        lavaLight.layers.set(0); 
+        scene.add(lavaLight);
+
+        const satLight = new THREE.DirectionalLight(0xffffff, 4);
+        satLight.position.set(150000, 100000, 100000);
+        satLight.layers.set(1); 
+        scene.add(satLight);
+
         const starGeo = new THREE.BufferGeometry();
         const starCoords = [];
         for(let i = 0; i < 30000; i++) starCoords.push((Math.random()-0.5)*3000000, (Math.random()-0.5)*3000000, (Math.random()-0.5)*3000000);
@@ -151,10 +162,18 @@
         const clock = new THREE.Clock();
         const loader = new GLTFLoader();
         let lavaPlanet, alienModel, satelliteModel;
+        let alienOrbitAngle = 0;
 
         loader.load('./lavaplanet.glb', (gltf) => {
             lavaPlanet = gltf.scene;
             lavaPlanet.scale.set(18000, 18000, 18000);
+            lavaPlanet.traverse(child => {
+                if (child.isMesh) {
+                    child.layers.set(0);
+                    child.material.emissive = new THREE.Color(0xff2200);
+                    child.material.emissiveIntensity = 20;
+                }
+            });
             scene.add(lavaPlanet);
             const mixer = new THREE.AnimationMixer(lavaPlanet);
             gltf.animations.forEach(clip => mixer.clipAction(clip).play());
@@ -164,9 +183,18 @@
         loader.load('./alien.glb', (gltf) => {
             alienModel = gltf.scene;
             alienModel.scale.set(8000, 8000, 8000);
+            alienModel.traverse(c => { if(c.isMesh) c.layers.set(0); });
             scene.add(alienModel);
             const mixer = new THREE.AnimationMixer(alienModel);
             if (gltf.animations.length > 0) { mixer.clipAction(gltf.animations[0]).play(); mixers.push(mixer); }
+        });
+
+        loader.load('./satellite.glb', (gltf) => {
+            satelliteModel = gltf.scene;
+            satelliteModel.scale.set(8000, 8000, 8000);
+            satelliteModel.position.set(110000, 25000, -60000);
+            satelliteModel.traverse(child => { if (child.isMesh) child.layers.set(1); });
+            scene.add(satelliteModel);
         });
 
         function animate() {
@@ -174,6 +202,13 @@
             const delta = clock.getDelta();
             mixers.forEach(m => m.update(delta));
             if(lavaPlanet) lavaPlanet.rotation.y += 0.001;
+            if (alienModel) {
+                alienOrbitAngle += 0.005;
+                alienModel.position.x = Math.cos(alienOrbitAngle) * 45000;
+                alienModel.position.z = Math.sin(alienOrbitAngle) * 45000;
+                alienModel.lookAt(0, 0, 0);
+            }
+            if (satelliteModel) satelliteModel.rotation.y += 0.003;
             controls.update();
             renderer.render(scene, camera);
         }
