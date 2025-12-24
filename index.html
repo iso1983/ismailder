@@ -8,7 +8,7 @@
         body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Roboto, sans-serif; }
         canvas { display: block; }
         
-        /* Updated Profile Container and Image */
+        /* FIX: Made the container and image much larger and removed the circle crop */
         .profile-container { 
             position: absolute; 
             top: 20px; 
@@ -18,18 +18,12 @@
         }
         
         .profile-overlay { 
-            width: 250px; /* Increased from 90px to 250px */
+            width: 350px; /* Adjust this number to make it even bigger or smaller */
             height: auto; 
-            border-radius: 15px; /* Changed from 50% (circle) to slightly rounded */
+            border-radius: 12px; /* Keeps the square/rectangular shape of your file */
             border: 3px solid #ff4400; 
-            box-shadow: 0 0 30px rgba(255, 68, 0, 0.6); 
-            object-fit: cover; 
-            transition: transform 0.3s ease;
-        }
-
-        /* Hover effect to make it even bigger when you mouse over it */
-        .profile-overlay:hover {
-            transform: scale(1.1);
+            box-shadow: 0 0 25px #ff4400; 
+            object-fit: contain; 
         }
 
         .window { position: absolute; z-index: 1000; color: white; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 68, 0, 0.3); border-radius: 12px; padding: 15px; }
@@ -41,10 +35,7 @@
 </head>
 <body>
 
-    <div class="profile-container">
-        <img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" class="profile-overlay">
-    </div>
-    
+    <div class="profile-container"><img src="https://raw.githubusercontent.com/iso1983/VL8R4eva/main/myface.png" class="profile-overlay"></div>
     <div id="btc-window" class="window"><h3>Bitcoin Terminal</h3><div class="price">$96,420.00</div></div>
     <div id="eth-window" class="window"><h3>Ethereum Terminal</h3><div class="price">$3,512.45</div></div>
 
@@ -64,23 +55,106 @@
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
         const scene = new THREE.Scene();
+        
+        // --- High Resolution Fix: Narrower clipping planes ---
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 500, 2000000);
         camera.position.set(0, 40000, 180000);
+        camera.layers.enable(0);
+        camera.layers.enable(1);
+
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            logarithmicDepthBuffer: false,
+            powerPreference: "high-performance"
+        });
         
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMappingExposure = 2.5;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
+        // --- LIGHTING ---
         scene.add(new THREE.AmbientLight(0xffffff, 0.15));
 
-        // Simplified animation loop for brevity, keeping your logic
+        const lavaLight = new THREE.PointLight(0xff4400, 50, 1000000, 1.2);
+        lavaLight.layers.set(0); 
+        scene.add(lavaLight);
+
+        const satLight = new THREE.DirectionalLight(0xffffff, 4);
+        satLight.position.set(150000, 100000, 100000);
+        satLight.layers.set(1); 
+        scene.add(satLight);
+
+        // Starfield
+        const starGeo = new THREE.BufferGeometry();
+        const starCoords = [];
+        for(let i = 0; i < 30000; i++) starCoords.push((Math.random()-0.5)*3000000, (Math.random()-0.5)*3000000, (Math.random()-0.5)*3000000);
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 150, color: 0xffffff })));
+
+        const mixers = [];
         const clock = new THREE.Clock();
+        const loader = new GLTFLoader();
+        
+        let lavaPlanet, alienModel, satelliteModel;
+        let alienOrbitAngle = 0;
+
+        loader.load('./lavaplanet.glb', (gltf) => {
+            lavaPlanet = gltf.scene;
+            lavaPlanet.scale.set(18000, 18000, 18000);
+            lavaPlanet.traverse(child => {
+                if (child.isMesh) {
+                    child.layers.set(0);
+                    child.material.emissive = new THREE.Color(0xff2200);
+                    child.material.emissiveIntensity = 20;
+                }
+            });
+            scene.add(lavaPlanet);
+            const mixer = new THREE.AnimationMixer(lavaPlanet);
+            gltf.animations.forEach(clip => mixer.clipAction(clip).play());
+            mixers.push(mixer);
+        });
+
+        loader.load('./alien.glb', (gltf) => {
+            alienModel = gltf.scene;
+            alienModel.scale.set(8000, 8000, 8000);
+            alienModel.traverse(c => { if(c.isMesh) c.layers.set(0); });
+            scene.add(alienModel);
+            const mixer = new THREE.AnimationMixer(alienModel);
+            if (gltf.animations.length > 0) { mixer.clipAction(gltf.animations[0]).play(); mixers.push(mixer); }
+        });
+
+        loader.load('./satellite.glb', (gltf) => {
+            satelliteModel = gltf.scene;
+            satelliteModel.scale.set(8000, 8000, 8000);
+            satelliteModel.position.set(110000, 25000, -60000);
+            satelliteModel.traverse(child => { if (child.isMesh) child.layers.set(1); });
+            scene.add(satelliteModel);
+        });
+
         function animate() {
             requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            mixers.forEach(m => m.update(delta));
+            
+            if(lavaPlanet) lavaPlanet.rotation.y += 0.001;
+
+            if (alienModel) {
+                alienOrbitAngle += 0.005;
+                alienModel.position.x = Math.cos(alienOrbitAngle) * 45000;
+                alienModel.position.z = Math.sin(alienOrbitAngle) * 45000;
+                alienModel.lookAt(0, 0, 0);
+            }
+
+            if (satelliteModel) {
+                satelliteModel.rotation.y += 0.003;
+            }
+            
             controls.update();
             renderer.render(scene, camera);
         }
