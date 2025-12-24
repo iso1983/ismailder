@@ -56,7 +56,8 @@
             box-shadow: 0 0 15px 5px #ff0000;
         }
 
-        .profile-container:hover .laser {
+        /* CHANGED: Laser now triggers via JS class 'lasering' instead of CSS hover */
+        .profile-container.lasering .laser {
             opacity: 1;
             animation: shoot-up 0.1s infinite alternate;
         }
@@ -101,14 +102,23 @@
         import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
-        // --- AUDIO TRIGGER LOGIC ---
+        // --- AUDIO & LASER SYNC LOGIC ---
         const profile = document.getElementById('profile');
         const laughSound = document.getElementById('laughSound');
 
         profile.addEventListener('mouseenter', () => {
-            laughSound.currentTime = 0; 
-            laughSound.play().catch(e => console.log("Interaction required"));
+            // Only trigger if not already playing to prevent restart glitching
+            if (laughSound.paused) {
+                profile.classList.add('lasering'); // Start laser animation
+                laughSound.currentTime = 0; 
+                laughSound.play().catch(e => console.log("Interaction required"));
+            }
         });
+
+        // Remove laser effect automatically when the sound finishes
+        laughSound.onended = () => {
+            profile.classList.remove('lasering');
+        };
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 500, 2000000);
